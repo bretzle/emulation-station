@@ -1,6 +1,10 @@
+use log::warn;
+
+use crate::arm::coprocessor::Coprocessor;
 use crate::arm::decoder::Decoder;
 use crate::arm::memory::Memory;
-use crate::arm::state::{Condition, State};
+use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
+use crate::util::Shared;
 
 #[derive(PartialEq)]
 pub enum Arch {
@@ -12,7 +16,7 @@ pub struct Cpu<M, C> {
     // common stuff
     pub state: State,
     pub arch: Arch,
-    pub memory: M,
+    pub memory: Shared<M>,
     pub coprocessor: C,
     irq: bool,
     halted: bool,
@@ -26,8 +30,8 @@ pub struct Cpu<M, C> {
     // todo
 }
 
-impl<M: Memory, C> Cpu<M, C> {
-    pub fn new(arch: Arch, memory: M, coprocessor: C) -> Self {
+impl<M: Memory, C: Coprocessor> Cpu<M, C> {
+    pub fn new(arch: Arch, memory: Shared<M>, coprocessor: C) -> Self {
         Self {
             state: State::default(),
             arch,
@@ -88,8 +92,101 @@ impl<M: Memory, C> Cpu<M, C> {
         self.condition_table[cond as usize][(self.state.cpsr.bits() >> 28) as usize]
     }
 
+    pub fn get_cpsr(&self) -> StatusReg {
+        self.state.cpsr
+    }
+
+    pub fn set_cpsr(&mut self, val: StatusReg) {
+        self.state.cpsr = val;
+    }
+
+    pub fn set_gpr(&mut self, reg: GPR, val: u32) {
+        self.state.gpr[reg as usize] = val;
+        if reg == GPR::PC {
+            if self.state.cpsr.thumb() {
+                self.thumb_flush_pipeline();
+            } else {
+                self.arm_flush_pipeline();
+            }
+        }
+    }
+
+    pub fn set_gpr_banked(&mut self, gpr: GPR, mode: Mode, value: u32) {
+        let start = if mode == Mode::Fiq { GPR::R8 } else { GPR::SP };
+        if self.state.cpsr.mode() != mode && gpr >= start && gpr <= GPR::LR {
+            self.state.gpr_banked[mode.bank() as usize][gpr as usize - 8] = value;
+        } else {
+            self.set_gpr(gpr, value);
+        }
+    }
+
+    pub fn thumb_flush_pipeline(&mut self) {
+        self.state.gpr[15] &= !1;
+        self.pipeline[0] = self.code_read_half(self.state.gpr[15]) as u32;
+        self.pipeline[1] = self.code_read_half(self.state.gpr[15] + 2) as u32;
+        self.state.gpr[15] += 4;
+    }
+
+    pub fn arm_flush_pipeline(&mut self) {
+        self.state.gpr[15] &= !3;
+        self.pipeline[0] = self.code_read_word(self.state.gpr[15]);
+        self.pipeline[1] = self.code_read_word(self.state.gpr[15] + 4);
+        self.state.gpr[15] += 8;
+    }
+
+    fn code_read_half(&mut self, addr: u32) -> u16 {
+        // todo: self.memory.read::<u16, { Bus::Code }>(addr)
+        self.memory.read_half(addr)
+    }
+
     fn code_read_word(&mut self, addr: u32) -> u32 {
         // todo: self.memory.read::<u32, { Bus::Code }>(addr)
         self.memory.read_word(addr)
+    }
+
+    pub fn read_word_rotate(&mut self, addr: u32) -> u32 {
+        let val = self.memory.read_word(addr);
+        let amount = (addr & 0x3) * 8;
+        val.rotate_right(amount)
+    }
+
+    pub fn undefined_exception(&mut self) {
+        warn!(
+            "Interpreter: undefined exception fired for instruction {:08x} at {:08x}",
+            self.instruction, self.state.gpr[15]
+        );
+
+        *self.state.spsr_at(Bank::UND) = self.state.cpsr;
+        self.switch_mode(Mode::Undefined);
+
+        self.state.cpsr.set_i(true);
+        self.state.gpr[14] = self.state.gpr[15] - 4;
+        self.state.gpr[15] = self.coprocessor.get_exception_base() + 0x04;
+        self.arm_flush_pipeline();
+    }
+
+    pub fn switch_mode(&mut self, mode: Mode) {
+        let old = self.state.cpsr.mode().bank();
+        let new = mode.bank();
+
+        if new != Bank::USR {
+            todo!()
+            // self.state.set_spsr(new);
+        } else {
+            todo!()
+        }
+
+        self.state.cpsr.set_mode(mode);
+
+        if old == Bank::FIQ || new == Bank::FIQ {
+            todo!()
+        } else {
+            todo!()
+        }
+    }
+
+    pub fn set_nz(&mut self, res: u32) {
+        self.state.cpsr.set_n(res >> 31 != 0);
+        self.state.cpsr.set_z(res == 0);
     }
 }

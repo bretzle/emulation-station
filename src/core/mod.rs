@@ -1,17 +1,21 @@
+use log::debug;
+
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
+use crate::core::hardware::cartridge::Cartridge;
 use crate::core::scheduler::Scheduler;
 use crate::util::Shared;
 
 pub mod arm7;
 pub mod arm9;
 pub mod config;
+pub mod hardware;
 pub mod scheduler;
 
 pub struct System {
     // arm7: (),
     arm9: Arm9,
-    // cartridge: (),
+    cartridge: Cartridge,
     // video_unit: (),
     // input: (),
     // spu: (),
@@ -26,10 +30,10 @@ pub struct System {
     // wifi: (),
     scheduler: Scheduler,
 
-    // main_memory: (),
+    main_memory: Box<[u8]>,
     // shared_wram: (),
     //
-    // wramcnt: (),
+    wramcnt: u8,
     // haltcnt: (),
     // exmemcnt: (),
     // exmemstat: (),
@@ -41,9 +45,20 @@ impl System {
     pub fn new() -> Shared<Self> {
         Shared::new_cyclic(|system| Self {
             arm9: Arm9::new(system),
+            cartridge: Cartridge::new(system),
             scheduler: Scheduler::default(),
+            main_memory: vec![0; 0x400000].into_boxed_slice(),
+            wramcnt: 0,
             config: Config::default(),
         })
+    }
+
+    pub fn reset(&mut self) {
+        self.cartridge.load(&self.config.game_path);
+        match self.config.boot_mode {
+            BootMode::Firmware => todo!(),
+            BootMode::Direct => self.direct_boot(),
+        }
     }
 
     pub fn set_game_path(&mut self, path: &str) {
@@ -67,5 +82,21 @@ impl System {
             self.scheduler.tick(cycles);
             self.scheduler.run();
         }
+    }
+
+    fn direct_boot(&mut self) {
+        self.write_wramcnt(0x03);
+
+        self.cartridge.direct_boot();
+        // self.arm7.direct_boot();
+        self.arm9.direct_boot();
+        // self.spi.direct_boot();
+
+        debug!("System: direct booted successfully")
+    }
+
+    fn write_wramcnt(&mut self, val: u8) {
+        self.wramcnt = val & 0x3;
+        self.arm9.get_memory().update_wram_mapping();
     }
 }

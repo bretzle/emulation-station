@@ -1,3 +1,4 @@
+use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::Cpu;
 use crate::arm::memory::Memory;
 
@@ -16,7 +17,7 @@ pub struct Decoder<M, C> {
     thumb_list: Vec<Info<M, C>>,
 }
 
-impl<M: Memory, C> Decoder<M, C> {
+impl<M: Memory, C: Coprocessor> Decoder<M, C> {
     pub fn new() -> Self {
         let mut decoder = Self {
             arm_lut: [Cpu::illegal_instruction; 4096],

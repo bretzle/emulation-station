@@ -35,5 +35,6 @@ impl Application {
     fn boot_game(&mut self, path: &str) {
         self.system.set_game_path(path);
         self.system.set_boot_mode(BootMode::Direct);
+        self.system.reset();
     }
 }

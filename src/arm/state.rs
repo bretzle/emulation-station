@@ -3,7 +3,9 @@ use std::mem::transmute;
 use crate::bitfield;
 
 #[repr(u8)]
-enum GPR {
+#[derive(Copy, Clone, PartialEq, PartialOrd, Default)]
+pub enum GPR {
+    #[default]
     R0 = 0,
     R1 = 1,
     R2 = 2,
@@ -22,8 +24,15 @@ enum GPR {
     PC = 15,
 }
 
+impl From<u32> for GPR {
+    fn from(value: u32) -> Self {
+        unsafe { transmute(value as u8) }
+    }
+}
+
 #[repr(u8)]
-enum Bank {
+#[derive(PartialEq)]
+pub enum Bank {
     USR = 0,
     FIQ = 1,
     IRQ = 2,
@@ -33,8 +42,9 @@ enum Bank {
 }
 
 #[repr(u8)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
 pub enum Condition {
+    #[default]
     EQ = 0,
     NE = 1,
     CS = 2,
@@ -95,7 +105,7 @@ impl Condition {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Mode {
     User = 0x10,
     Fiq = 0x11,
@@ -104,6 +114,19 @@ pub enum Mode {
     Abort = 0x17,
     Undefined = 0x1b,
     System = 0x1f,
+}
+
+impl Mode {
+    pub fn bank(self) -> Bank {
+        match self {
+            Mode::User | Mode::System => Bank::USR,
+            Mode::Fiq => Bank::FIQ,
+            Mode::Irq => Bank::IRQ,
+            Mode::Supervisor => Bank::SVC,
+            Mode::Abort => Bank::ABT,
+            Mode::Undefined => Bank::UND,
+        }
+    }
 }
 
 bitfield! {
@@ -139,5 +162,9 @@ impl State {
     #[inline]
     pub fn spsr_mut(&mut self) -> &mut StatusReg {
         &mut self.spsr_banked[self.spsr]
+    }
+
+    pub fn spsr_at(&mut self, bank: Bank) -> &mut StatusReg {
+        &mut self.spsr_banked[bank as usize]
     }
 }

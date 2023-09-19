@@ -13,6 +13,10 @@ pub struct Shared<T> {
 }
 
 impl<T> Shared<T> {
+    pub fn new(val: T) -> Self {
+        Self::new_cyclic(|_| val)
+    }
+
     pub fn new_cyclic<F: FnOnce(&Self) -> T>(f: F) -> Self {
         let uninit_ptr: NonNull<_> = Box::leak(Box::new(SharedBox {
             inner: MaybeUninit::<T>::uninit(),
