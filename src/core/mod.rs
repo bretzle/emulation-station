@@ -1,8 +1,10 @@
+use crate::arm::cpu::Arch;
 use log::debug;
 
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
 use crate::core::hardware::cartridge::Cartridge;
+use crate::core::hardware::dma::Dma;
 use crate::core::scheduler::Scheduler;
 use crate::core::video::VideoUnit;
 use crate::util::Shared;
@@ -18,11 +20,11 @@ pub struct System {
     // arm7: (),
     arm9: Arm9,
     cartridge: Cartridge,
-    video_unit: VideoUnit,
+    pub video_unit: VideoUnit,
     // input: (),
     // spu: (),
-    // dma7: (),
-    // dma9: (),
+    dma7: Dma,
+    dma9: Dma,
     // ipc: (),
     // math_unit: (),
     // rtc: (),
@@ -49,6 +51,8 @@ impl System {
             arm9: Arm9::new(system),
             cartridge: Cartridge::new(system),
             video_unit: VideoUnit::new(system),
+            dma7: Dma::new(Arch::ARMv4, system),
+            dma9: Dma::new(Arch::ARMv5, system),
             scheduler: Scheduler::new(system),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
             wramcnt: 0,
@@ -87,6 +91,9 @@ impl System {
             self.scheduler.tick(cycles);
             self.scheduler.run();
         }
+
+        self.video_unit.ppu_a.on_finish_frame();
+        self.video_unit.ppu_b.on_finish_frame();
     }
 
     fn direct_boot(&mut self) {

@@ -1,14 +1,15 @@
 use std::rc::Rc;
 
 use crate::bitfield;
+use crate::core::hardware::dma::DmaTiming;
 use crate::core::scheduler::EventInfo;
+use crate::core::video::ppu::Ppu;
 use crate::core::video::vram::Vram;
 use crate::core::System;
-use crate::core::video::ppu::Ppu;
 use crate::util::Shared;
 
-pub mod vram;
 pub mod ppu;
+pub mod vram;
 
 bitfield! {
     struct PowCnt1(u32) {
@@ -111,6 +112,14 @@ impl VideoUnit {
         scheduler.add_event(1606, &self.scanline_start_event);
     }
 
+    pub fn fetch_framebuffer(&self, top: bool) -> &[u32] {
+        if self.powcnt1.display_swap() == (top == true) {
+            self.ppu_a.fetch_framebuffer()
+        } else {
+            self.ppu_b.fetch_framebuffer()
+        }
+    }
+
     pub fn write_powcnt1(&mut self, val: u32, mut mask: u32) {
         mask &= 0x820f;
         self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);
@@ -120,7 +129,7 @@ impl VideoUnit {
         if self.vcount < 192 {
             self.ppu_a.render_scanline(self.vcount);
             self.ppu_b.render_scanline(self.vcount);
-            todo!()
+            self.system.dma9.trigger(DmaTiming::HBlank);
         }
 
         self.dispstat7.set_hblank(true);
@@ -137,7 +146,7 @@ impl VideoUnit {
         // todo: 3d rendering
 
         if self.vcount > 1 && self.vcount < 194 {
-            todo!()
+            self.system.dma9.trigger(DmaTiming::StartOfDisplay)
         }
     }
 
@@ -151,21 +160,36 @@ impl VideoUnit {
         self.dispstat9.set_hblank(false);
 
         if self.vcount == 192 {
-            todo!()
+            self.dispstat7.set_vblank(true);
+            self.dispstat9.set_vblank(true);
+
+            if self.dispstat7.vblank_irq() {
+                todo!()
+            }
+            if self.dispstat9.vblank_irq() {
+                todo!()
+            }
+
+            self.system.dma9.trigger(DmaTiming::VBlank);
         } else if self.vcount == 262 {
-            todo!()
+            self.dispstat7.set_vblank(false);
+            self.dispstat9.set_vblank(false);
         }
 
         if self.dispstat7.lyc_setting() | self.dispstat7.lyc_setting_msb() << 1 == self.vcount {
             self.dispstat7.set_lyc(true);
-            todo!()
+            if self.dispstat7.lyc_irq() {
+                todo!()
+            }
         } else {
             self.dispstat7.set_lyc(false);
         }
 
         if self.dispstat9.lyc_setting() | self.dispstat9.lyc_setting_msb() << 1 == self.vcount {
             self.dispstat9.set_lyc(true);
-            todo!()
+            if self.dispstat9.lyc_irq() {
+                todo!()
+            }
         } else {
             self.dispstat9.set_lyc(false);
         }

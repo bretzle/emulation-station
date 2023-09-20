@@ -28,8 +28,8 @@ impl Cartridge {
     }
 
     pub fn direct_boot(&mut self) {
-        // transfer the header
-        for i in 0..0x170 {
+        // transfer the header + workaround for TinyFB
+        for i in 0..0x170.min(self.file.len() as u32) {
             self.system
                 .arm9
                 .get_memory()

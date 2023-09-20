@@ -39,6 +39,21 @@ bitfield! {
     }
 }
 
+enum BrightnessMode {
+    Disable = 0,
+    Increase = 1,
+    Decrease = 2,
+    Reserved = 3,
+}
+
+bitfield! {
+    struct MasterBright(u32) {
+        factor: u32 => 0 | 4,
+        // 5 | 13
+        mode: u8 [BrightnessMode] => 14 | 15
+    }
+}
+
 struct Object {
     priority: u32,
     color: u16,
@@ -64,13 +79,13 @@ pub struct Ppu {
     mosaic: Mosaic,
     bldcnt: (),
     bldy: (),
-    master_bright: (),
+    master_bright: MasterBright,
     bldalpha: (),
 
     mosaic_bg_vertical_counter: u16,
 
     framebuffer: Box<[u32; 256 * 192]>,
-    converted_framebuffer: (),
+    converted_framebuffer: Box<[u32; 256 * 192]>,
     bg_layers: [[u16; 256]; 4],
     obj_buffer: [Object; 256],
 
@@ -105,13 +120,16 @@ impl Ppu {
             mosaic: Mosaic(0),
             bldcnt: (),
             bldy: (),
-            master_bright: (),
+            master_bright: MasterBright(0),
             bldalpha: (),
             mosaic_bg_vertical_counter: 0,
             framebuffer: Box::new([0; 256 * 192]),
-            converted_framebuffer: (),
+            converted_framebuffer: Box::new([0; 256 * 192]),
             bg_layers: [[0; 256]; 4],
-            obj_buffer: std::array::from_fn(|_| Object{ priority: 0, color: 0 }),
+            obj_buffer: std::array::from_fn(|_| Object {
+                priority: 0,
+                color: 0,
+            }),
             palette_ram: (),
             oam: (),
             bg: (),
@@ -126,6 +144,16 @@ impl Ppu {
         // todo
 
         self.reset_layers();
+    }
+
+    pub fn on_finish_frame(&mut self) {
+        for i in 0..256 * 192 {
+            self.converted_framebuffer[i] = rgb666_to_rgb888(self.framebuffer[i])
+        }
+    }
+
+    pub fn fetch_framebuffer(&self) -> &[u32] {
+        self.converted_framebuffer.as_slice()
     }
 
     pub fn render_scanline(&mut self, line: u16) {
@@ -170,7 +198,10 @@ impl Ppu {
     }
 
     fn apply_master_brightness(&mut self, line: u16) {
-        // todo
+        let factor = self.master_bright.factor().min(16);
+        if factor != 0 {
+            todo!()
+        }
     }
 
     fn render_blank_screen(&mut self, line: u16) {
@@ -182,4 +213,12 @@ impl Ppu {
     fn plot(&mut self, x: u16, y: u16, color: u32) {
         self.framebuffer[((256 * y) + x) as usize] = color;
     }
+}
+
+fn rgb666_to_rgb888(colour: u32) -> u32 {
+    let r = ((colour & 0x3f) * 255) / 63;
+    let g = (((colour >> 6) & 0x3f) * 255) / 63;
+    let b = (((colour >> 12) & 0x3f) * 255) / 63;
+    // 0xff000000 | (r << 16) | (g << 8) | b
+    (r << 16) | (g << 8) | b
 }

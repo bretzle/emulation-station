@@ -51,8 +51,8 @@ impl Arm9Memory {
 
         self.dtcm.data = self.dtcm_data.as_mut_ptr();
         self.itcm.data = self.itcm_data.as_mut_ptr();
-        self.dtcm.mask = self.dtcm_data.len() - 1;
-        self.itcm.mask = self.itcm_data.len() - 1;
+        self.dtcm.mask = self.dtcm_data.len() as u32 - 1;
+        self.itcm.mask = self.itcm_data.len() as u32 - 1;
 
         unsafe {
             let ptr = self.system.main_memory.as_mut_ptr();
@@ -69,10 +69,10 @@ impl Arm9Memory {
 
     pub fn update_wram_mapping(&mut self) {
         match self.system.wramcnt {
-            0x0 => warn!("update_vram_mapping"),
-            0x1 => warn!("update_vram_mapping"),
-            0x2 => warn!("update_vram_mapping"),
-            0x3 => warn!("update_vram_mapping"),
+            0x0 => warn!("update_wram_mapping"),
+            0x1 => warn!("update_wram_mapping"),
+            0x2 => warn!("update_wram_mapping"),
+            0x3 => warn!("update_wram_mapping"),
             _ => unreachable!(),
         }
     }
@@ -111,9 +111,12 @@ impl Arm9Memory {
 
         // TODO: if bus = Data
         if dtcm.enable_writes && addr >= dtcm.base && addr < dtcm.limit {
+            let ptr = dtcm.data;
+            let val = val;
+            let offset = (addr - dtcm.base) & dtcm.mask;
+            unsafe {*ptr.add(offset as usize).cast() = val};
             // common::write<T>(dtcm.data, value, (addr - dtcm.config.base) & dtcm.mask);
-            // return;
-            todo!()
+            return true;
         }
 
         let ptr = self.write_table.get_pointer::<T>(addr);

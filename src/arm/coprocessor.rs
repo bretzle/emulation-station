@@ -6,7 +6,7 @@ pub trait Coprocessor {
 
 pub struct Tcm {
     pub data: *mut u8,
-    pub mask: usize,
+    pub mask: u32,
 
     pub enable_reads: bool,
     pub enable_writes: bool,
