@@ -16,11 +16,9 @@ pub struct Vram {
 
 impl Vram {
     pub fn new() -> Self {
-        let mut vram = Self {
+        Self {
             bga: VramRegion::default(),
-        };
-        vram.reset(); // todo: reset all components in a better way
-        vram
+        }
     }
 
     pub fn reset(&mut self) {

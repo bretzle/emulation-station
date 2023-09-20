@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
@@ -49,7 +49,7 @@ impl System {
             arm9: Arm9::new(system),
             cartridge: Cartridge::new(system),
             video_unit: VideoUnit::new(system),
-            scheduler: Scheduler::default(),
+            scheduler: Scheduler::new(system),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
             wramcnt: 0,
             config: Config::default(),
@@ -59,6 +59,7 @@ impl System {
     pub fn reset(&mut self) {
         self.arm9.reset();
         self.cartridge.load(&self.config.game_path);
+        self.video_unit.reset();
         match self.config.boot_mode {
             BootMode::Firmware => todo!(),
             BootMode::Direct => self.direct_boot(),

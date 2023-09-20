@@ -1,8 +1,5 @@
 use log::LevelFilter;
-use once_cell::sync::Lazy;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
-use std::collections::HashSet;
-use std::fs::File;
 
 use crate::application::Application;
 

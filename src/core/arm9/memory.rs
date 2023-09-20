@@ -1,8 +1,6 @@
-use std::collections::HashSet;
 use std::mem::size_of;
 
 use log::warn;
-use once_cell::sync::Lazy;
 
 use crate::arm::coprocessor::Tcm;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
@@ -176,12 +174,15 @@ impl Arm9Memory {
 
     fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
         const MMIO_POSTFLG: u32 = mmio!(0x04000300);
+        const MMIO_POWCNT1: u32 = mmio!(0x04000304);
+
         match mmio!(addr) {
             MMIO_POSTFLG => {
                 if MASK & 0xff != 0 {
                     self.write_postflg(val as u8)
                 }
             }
+            MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
             _ => warn!(
                 "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),
