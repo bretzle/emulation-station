@@ -4,7 +4,7 @@ use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::interpreter::instructions::*;
 use crate::arm::memory::Memory;
-use crate::arm::state::{GPR, Mode};
+use crate::arm::state::{Mode, GPR};
 
 #[allow(dead_code)]
 impl<M: Memory, C: Coprocessor> Cpu<M, C> {
@@ -134,7 +134,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
 
         for i in first..16 {
             if !(rlist & (1 << i) != 0) {
-                continue
+                continue;
             }
 
             if pre {

@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::mem::size_of;
 
 use log::warn;
+use once_cell::sync::Lazy;
 
 use crate::arm::coprocessor::Tcm;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
@@ -44,7 +46,16 @@ impl Arm9Memory {
         }
     }
 
-    pub fn update_wram_mapping(&mut self) {
+    pub fn reset(&mut self) {
+        self.postflg = 0;
+        self.dtcm_data.fill(0);
+        self.itcm_data.fill(0);
+
+        self.dtcm.data = self.dtcm_data.as_mut_ptr();
+        self.itcm.data = self.itcm_data.as_mut_ptr();
+        self.dtcm.mask = self.dtcm_data.len() - 1;
+        self.itcm.mask = self.itcm_data.len() - 1;
+
         unsafe {
             let ptr = self.system.main_memory.as_mut_ptr();
             self.map(
@@ -53,14 +64,18 @@ impl Arm9Memory {
                 ptr,
                 0x3fffff,
                 RegionAttributes::ReadWrite,
-            ); // todo: this should not be here
-            match self.system.wramcnt {
-                0x0 => warn!("update_vram_mapping"),
-                0x1 => warn!("update_vram_mapping"),
-                0x2 => warn!("update_vram_mapping"),
-                0x3 => warn!("update_vram_mapping"),
-                _ => unreachable!(),
-            }
+            );
+        }
+        self.update_wram_mapping();
+    }
+
+    pub fn update_wram_mapping(&mut self) {
+        match self.system.wramcnt {
+            0x0 => warn!("update_vram_mapping"),
+            0x1 => warn!("update_vram_mapping"),
+            0x2 => warn!("update_vram_mapping"),
+            0x3 => warn!("update_vram_mapping"),
+            _ => unreachable!(),
         }
     }
 
@@ -127,7 +142,7 @@ impl Arm9Memory {
             todo!()
         }
 
-        let pointer = self.read_table.get_pointer::<T>(addr);
+        let pointer = unsafe { self.read_table.get_pointer::<T>(addr) };
         if !pointer.is_null() {
             return Some(unsafe { std::ptr::read(pointer.cast()) });
         }
@@ -216,15 +231,15 @@ impl Memory for Arm9Memory {
     }
 
     fn read_word(&mut self, addr: u32) -> u32 {
-        let addr = addr & !(size_of::<u32>() as u32 - 1);
-        if let Some(val) = self.tcm_read::<u32>(addr) {
+        let addr2 = addr & !(size_of::<u32>() as u32 - 1);
+        if let Some(val) = self.tcm_read::<u32>(addr2) {
             return val;
         }
 
-        match addr >> 24 {
+        match addr2 >> 24 {
             0x04 => todo!(),
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.read(addr2),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             0x0a => todo!(),
@@ -269,12 +284,13 @@ impl Memory for Arm9Memory {
             return;
         }
         match addr >> 24 {
+            0x00 | 0x01 => {}
             0x04 => self.mmio_write_word(addr, val),
             0x05 => todo!(),
             0x06 => todo!(),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
-            _ => warn!("ARM9Memory: handle 16-bit write {addr:08x} = {val:08x}"),
+            _ => warn!("ARM9Memory: handle 32-bit write {addr:08x} = {val:08x}"),
         }
     }
 }

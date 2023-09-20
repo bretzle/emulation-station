@@ -132,6 +132,7 @@ dependencies = [
  "color-eyre",
  "log",
  "minifb",
+ "once_cell",
  "paste",
  "simplelog",
 ]

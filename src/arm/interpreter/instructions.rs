@@ -11,8 +11,10 @@ const fn get_field<const START: usize, const SIZE: usize>(val: u32) -> u32 {
 }
 
 const fn sign_extend<const N: usize>(val: u32) -> u32 {
-    let shift = 8 * size_of::<u32>() - N;
-    ((val as i32) << shift) as u32 >> shift
+    let shift = (8 * size_of::<u32>() - N) as u32;
+    // ((val as i32) << shift) as u32 >> shift
+    // let notherbits = size_of_val(&x) as u32 * 8 - nbits;
+    val.wrapping_shl(shift).wrapping_shr(shift)
 }
 
 #[repr(u8)]
@@ -210,7 +212,11 @@ impl ArmBranchLink {
     pub fn decode(instruction: u32) -> Self {
         Self {
             link: bit::<24>(instruction),
-            offset: sign_extend::<24>(get_field::<0, 24>(instruction)) << 2,
+            offset: if instruction & (1 << 23) != 0 {
+                0xFC000000
+            } else {
+                0
+            } | (get_field::<0, 24>(instruction) << 2),
             condition: get_field::<28, 4>(instruction).into(),
         }
     }

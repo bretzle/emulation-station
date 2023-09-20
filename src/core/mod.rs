@@ -1,9 +1,10 @@
-use log::debug;
+use log::{debug, info};
 
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
 use crate::core::hardware::cartridge::Cartridge;
 use crate::core::scheduler::Scheduler;
+use crate::core::video::VideoUnit;
 use crate::util::Shared;
 
 pub mod arm7;
@@ -11,12 +12,13 @@ pub mod arm9;
 pub mod config;
 pub mod hardware;
 pub mod scheduler;
+pub mod video;
 
 pub struct System {
     // arm7: (),
     arm9: Arm9,
     cartridge: Cartridge,
-    // video_unit: (),
+    video_unit: VideoUnit,
     // input: (),
     // spu: (),
     // dma7: (),
@@ -46,6 +48,7 @@ impl System {
         Shared::new_cyclic(|system| Self {
             arm9: Arm9::new(system),
             cartridge: Cartridge::new(system),
+            video_unit: VideoUnit::new(system),
             scheduler: Scheduler::default(),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
             wramcnt: 0,
@@ -54,6 +57,7 @@ impl System {
     }
 
     pub fn reset(&mut self) {
+        self.arm9.reset();
         self.cartridge.load(&self.config.game_path);
         match self.config.boot_mode {
             BootMode::Firmware => todo!(),

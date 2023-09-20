@@ -27,6 +27,10 @@ impl Arm9 {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cpu.memory.reset();
+    }
+
     pub fn run(&mut self, cycles: u64) {
         self.cpu.run(cycles)
     }

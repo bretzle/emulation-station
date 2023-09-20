@@ -18,7 +18,7 @@ impl Scheduler {
         // todo: there will always be an event... eventually...
         match self.events.get(0) {
             Some(e) => e.time,
-            None => 16,
+            None => u64::MAX,
         }
     }
 
