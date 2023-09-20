@@ -4,9 +4,11 @@ use crate::bitfield;
 use crate::core::scheduler::EventInfo;
 use crate::core::video::vram::Vram;
 use crate::core::System;
+use crate::core::video::ppu::Ppu;
 use crate::util::Shared;
 
 pub mod vram;
+pub mod ppu;
 
 bitfield! {
     struct PowCnt1(u32) {
@@ -21,20 +23,34 @@ bitfield! {
     }
 }
 
+bitfield! {
+    struct DispStat(u32) {
+        vblank: bool => 0,
+        hblank: bool => 1,
+        lyc: bool => 2,
+        vblank_irq: bool => 3,
+        hblank_irq: bool => 4,
+        lyc_irq: bool => 5,
+        // 6
+        lyc_setting_msb: u16 => 7,
+        lyc_setting: u16 => 8 | 15
+    }
+}
+
 pub struct VideoUnit {
     system: Shared<System>,
     pub vram: Vram,
-    pub ppu_a: (),
-    pub ppu_b: (),
+    pub ppu_a: Ppu,
+    pub ppu_b: Ppu,
     pub gpu: (),
 
     palette_ram: [u8; 0x800],
     oam: [u8; 0x800],
 
     powcnt1: PowCnt1,
-    vcount: (),
-    dispstat7: (),
-    dispstat9: (),
+    vcount: u16,
+    dispstat7: DispStat,
+    dispstat9: DispStat,
     dispcapcnt: (),
     irq7: (),
     irq9: (),
@@ -48,15 +64,15 @@ impl VideoUnit {
         Self {
             system: system.clone(),
             vram: Vram::new(),
-            ppu_a: (),
-            ppu_b: (),
+            ppu_a: Ppu::new(),
+            ppu_b: Ppu::new(),
             gpu: (),
             palette_ram: [0; 0x800],
             oam: [0; 0x800],
             powcnt1: PowCnt1(0),
-            vcount: (),
-            dispstat7: (),
-            dispstat9: (),
+            vcount: 0,
+            dispstat7: DispStat(0),
+            dispstat9: DispStat(0),
             dispcapcnt: (),
             irq7: (),
             irq9: (),
@@ -70,9 +86,13 @@ impl VideoUnit {
         self.palette_ram.fill(0);
         self.oam.fill(0);
         self.powcnt1.0 = 0;
+        self.dispstat7.0 = 0;
+        self.dispstat9.0 = 0;
+        self.vcount = 0;
 
         self.vram.reset();
-        // todo: reset other stuff
+        self.ppu_a.reset();
+        self.ppu_b.reset();
 
         let scheduler = &mut self.system.scheduler;
         self.scanline_start_event = scheduler.register_event("Scanline Start", |system| {
@@ -96,7 +116,58 @@ impl VideoUnit {
         self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);
     }
 
-    fn render_scanline_start(&mut self) {}
+    fn render_scanline_start(&mut self) {
+        if self.vcount < 192 {
+            self.ppu_a.render_scanline(self.vcount);
+            self.ppu_b.render_scanline(self.vcount);
+            todo!()
+        }
 
-    fn render_scanline_end(&mut self) {}
+        self.dispstat7.set_hblank(true);
+        self.dispstat9.set_hblank(true);
+
+        if self.dispstat7.hblank_irq() {
+            todo!()
+        }
+
+        if self.dispstat9.hblank_irq() {
+            todo!()
+        }
+
+        // todo: 3d rendering
+
+        if self.vcount > 1 && self.vcount < 194 {
+            todo!()
+        }
+    }
+
+    fn render_scanline_end(&mut self) {
+        self.vcount += 1;
+        if self.vcount == 263 {
+            self.vcount = 0;
+        }
+
+        self.dispstat7.set_hblank(false);
+        self.dispstat9.set_hblank(false);
+
+        if self.vcount == 192 {
+            todo!()
+        } else if self.vcount == 262 {
+            todo!()
+        }
+
+        if self.dispstat7.lyc_setting() | self.dispstat7.lyc_setting_msb() << 1 == self.vcount {
+            self.dispstat7.set_lyc(true);
+            todo!()
+        } else {
+            self.dispstat7.set_lyc(false);
+        }
+
+        if self.dispstat9.lyc_setting() | self.dispstat9.lyc_setting_msb() << 1 == self.vcount {
+            self.dispstat9.set_lyc(true);
+            todo!()
+        } else {
+            self.dispstat9.set_lyc(false);
+        }
+    }
 }
