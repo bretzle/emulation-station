@@ -28,7 +28,7 @@ impl Application {
     }
 
     pub fn start(&mut self) {
-        self.boot_game("roms/TinyFB.nds");
+        self.boot_game("roms/rockwrestler.nds");
 
         while self.window.is_open() {
             self.system.run_frame();

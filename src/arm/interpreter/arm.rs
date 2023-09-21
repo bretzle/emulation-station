@@ -16,8 +16,16 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
     }
 
-    pub(in crate::arm) fn arm_branch_exchange(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_branch_exchange(&mut self, instruction: u32) {
+        let ArmBranchExchange { rm } = ArmBranchExchange::decode(instruction);
+        if self.state.gpr[rm as usize] & 1 != 0 {
+            self.state.cpsr.set_thumb(true);
+            self.state.gpr[15] = self.state.gpr[rm as usize] & !1;
+            self.thumb_flush_pipeline();
+        } else {
+            self.state.gpr[15] = self.state.gpr[rm as usize] & !3;
+            self.arm_flush_pipeline();
+        }
     }
 
     fn arm_branch_link(&mut self, instruction: u32) {
@@ -119,12 +127,34 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
     }
 
-    pub(in crate::arm) fn arm_status_load(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_status_load(&mut self, instruction: u32) {
+        let ArmStatusLoad { spsr, rd } = ArmStatusLoad::decode(instruction);
+        if spsr {
+            self.state.gpr[rd as usize] = self.state.spsr().0;
+        } else {
+            self.state.gpr[rd as usize] = self.state.cpsr.0;
+        }
+        self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_status_store_register(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_status_store_register(&mut self, instruction: u32) {
+        let ArmStatusStore { spsr, mask, rhs } = ArmStatusStore::decode(instruction);
+        let val = match rhs {
+            ArmStatusStoreRhs::Imm(_) => unreachable!(),
+            ArmStatusStoreRhs::Reg(rm) => self.state.gpr[rm as usize],
+        };
+
+        if spsr {
+            let spsr = self.state.spsr_mut();
+            spsr.0 = (spsr.0 & !mask) | (val & mask);
+        } else {
+            if mask & 0xff != 0 {
+                self.switch_mode((val & 0x1f).into())
+            }
+            self.state.cpsr.0 = (self.state.cpsr.0 & !mask) | (val & mask);
+        }
+
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_status_store_immediate(&mut self, _: u32) {
@@ -239,49 +269,59 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     pub(in crate::arm) fn arm_single_data_transfer(&mut self, instruction: u32) {
-        let opcode = ArmSingleDataTransfer::decode(instruction);
-        let mut addr = self.state.gpr[opcode.rn as usize];
-        let do_writeback = !opcode.load || opcode.rd != opcode.rn;
+        let ArmSingleDataTransfer {
+            load,
+            writeback,
+            byte,
+            up,
+            pre,
+            rd,
+            rn,
+            condition,
+            rhs,
+        } = ArmSingleDataTransfer::decode(instruction);
+        let mut addr = self.state.gpr[rn as usize];
+        let do_writeback = !load || rd != rn;
 
-        let mut op2 = match opcode.rhs {
+        let mut op2 = match rhs {
             ArmSingleDataTransferRhs::Imm(imm) => imm,
             ArmSingleDataTransferRhs::Reg { .. } => todo!(),
         };
 
-        if !opcode.up {
+        if !up {
             op2 *= u32::MAX
         }
 
-        if opcode.pre {
+        if pre {
             addr += op2;
         }
 
         self.state.gpr[15] += 4;
 
-        if opcode.load {
-            if opcode.byte {
-                self.state.gpr[opcode.rd as usize] = todo!(); //read byte
+        if load {
+            if byte {
+                self.state.gpr[rd as usize] = self.memory.read_byte(addr) as u32;
             } else {
-                self.state.gpr[opcode.rd as usize] = self.read_word_rotate(addr);
+                self.state.gpr[rd as usize] = self.read_word_rotate(addr);
             }
         } else {
-            if opcode.byte {
-                todo!() // write byte
-            } else {
+            if byte {
                 self.memory
-                    .write_word(addr, self.state.gpr[opcode.rd as usize])
+                    .write_byte(addr, self.state.gpr[rd as usize] as u8)
+            } else {
+                self.memory.write_word(addr, self.state.gpr[rd as usize])
             }
         }
 
         if do_writeback {
-            if !opcode.pre {
-                self.state.gpr[opcode.rn as usize] += op2;
-            } else if opcode.writeback {
-                self.state.gpr[opcode.rn as usize] = addr;
+            if !pre {
+                self.state.gpr[rn as usize] += op2;
+            } else if writeback {
+                self.state.gpr[rn as usize] = addr;
             }
         }
 
-        if opcode.load && opcode.rd == GPR::PC {
+        if load && rd == GPR::PC {
             if self.arch == Arch::ARMv5 && self.state.gpr[15] & 1 != 0 {
                 todo!()
             } else {

@@ -171,18 +171,26 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         let new = mode.bank();
 
         if new != Bank::USR {
-            todo!()
-            // self.state.set_spsr(new);
+            self.state.set_spsr(new);
         } else {
-            todo!()
+            self.state.set_spsr(Bank::CPSR);
         }
 
         self.state.cpsr.set_mode(mode);
 
         if old == Bank::FIQ || new == Bank::FIQ {
-            todo!()
+            for i in 0..7 {
+                self.state.gpr_banked[old as usize][i] = self.state.gpr[i + 8];
+            }
+            for i in 0..7 {
+                self.state.gpr[i + 8] = self.state.gpr_banked[new as usize][i];
+            }
         } else {
-            todo!()
+            self.state.gpr_banked[old as usize][5] = self.state.gpr[13];
+            self.state.gpr_banked[old as usize][6] = self.state.gpr[14];
+
+            self.state.gpr[13] = self.state.gpr_banked[new as usize][5];
+            self.state.gpr[14] = self.state.gpr_banked[new as usize][6];
         }
     }
 

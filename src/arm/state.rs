@@ -31,7 +31,7 @@ impl From<u32> for GPR {
 }
 
 #[repr(u8)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum Bank {
     USR = 0,
     FIQ = 1,
@@ -39,6 +39,7 @@ pub enum Bank {
     SVC = 3,
     ABT = 4,
     UND = 5,
+    CPSR = u8::MAX,
 }
 
 #[repr(u8)]
@@ -116,6 +117,12 @@ pub enum Mode {
     System = 0x1f,
 }
 
+impl From<u32> for Mode {
+    fn from(value: u32) -> Self {
+        unsafe { transmute(value as u8) }
+    }
+}
+
 impl Mode {
     pub fn bank(self) -> Bank {
         match self {
@@ -156,15 +163,21 @@ pub struct State {
 impl State {
     #[inline]
     pub fn spsr(&self) -> &StatusReg {
-        &self.spsr_banked[self.spsr]
+        self.spsr_banked.get(self.spsr).unwrap_or(&self.cpsr)
     }
 
     #[inline]
     pub fn spsr_mut(&mut self) -> &mut StatusReg {
-        &mut self.spsr_banked[self.spsr]
+        self.spsr_banked
+            .get_mut(self.spsr)
+            .unwrap_or(&mut self.cpsr)
     }
 
     pub fn spsr_at(&mut self, bank: Bank) -> &mut StatusReg {
         &mut self.spsr_banked[bank as usize]
+    }
+
+    pub fn set_spsr(&mut self, bank: Bank) {
+        self.spsr = bank as usize;
     }
 }

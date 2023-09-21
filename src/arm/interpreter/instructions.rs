@@ -296,3 +296,69 @@ impl ArmHalfwordDataTransfer {
         }
     }
 }
+
+pub enum ArmStatusStoreRhs {
+    Imm(u32),
+    Reg(GPR),
+}
+
+pub struct ArmStatusStore {
+    pub spsr: bool,
+    pub mask: u32,
+    pub rhs: ArmStatusStoreRhs,
+}
+
+impl ArmStatusStore {
+    pub fn decode(instruction: u32) -> Self {
+        let spsr = bit::<22>(instruction);
+        let imm = bit::<25>(instruction);
+
+        let mut mask = 0;
+        if bit::<16>(instruction) {
+            mask |= 0x000000ff;
+        }
+        if bit::<17>(instruction) {
+            mask |= 0x0000ff00;
+        }
+        if bit::<18>(instruction) {
+            mask |= 0x00ff0000;
+        }
+        if bit::<19>(instruction) {
+            mask |= 0xff000000;
+        }
+
+        let rhs = if imm {
+            let amount = get_field::<8, 4>(instruction) << 1;
+            ArmStatusStoreRhs::Imm((instruction & 0xff).rotate_right(amount))
+        } else {
+            ArmStatusStoreRhs::Reg(get_field::<0, 4>(instruction).into())
+        };
+
+        Self { spsr, mask, rhs }
+    }
+}
+
+pub struct ArmBranchExchange {
+    pub rm: GPR,
+}
+
+impl ArmBranchExchange {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ArmStatusLoad {
+    pub spsr: bool,
+    pub rd: GPR
+}
+
+impl ArmStatusLoad {
+    pub fn decode(instruction: u32) -> Self {
+        let spsr = bit::<22>(instruction);
+        let rd = get_field::<12, 4>(instruction).into();
+        Self {spsr, rd}
+    }
+}

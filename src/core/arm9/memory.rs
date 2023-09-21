@@ -156,9 +156,9 @@ impl Arm9Memory {
         let mirrored = val as u32 * 0x01010101;
         match addr & 0x3 {
             0x0 => self.mmio_write::<0x000000ff>(addr & !0x3, mirrored),
-            0x1 => todo!(),
-            0x2 => todo!(),
-            0x3 => todo!(),
+            0x1 => self.mmio_write::<0x0000ff00>(addr & !0x3, mirrored),
+            0x2 => self.mmio_write::<0x00ff0000>(addr & !0x3, mirrored),
+            0x3 => self.mmio_write::<0xff000000>(addr & !0x3, mirrored),
             _ => unreachable!(),
         }
     }
@@ -188,10 +188,22 @@ impl Arm9Memory {
                 .system
                 .video_unit
                 .vram
-                .write_vramcnt(VramBank::A, (val & 0xff) as u8),
-            MMIO_VRAMCNT if MASK & 0xff00 != 0 => todo!(),
-            MMIO_VRAMCNT if MASK & 0xff0000 != 0 => todo!(),
-            MMIO_VRAMCNT if MASK & 0xff000000 != 0 => todo!(),
+                .write_vramcnt(VramBank::A, val as u8),
+            MMIO_VRAMCNT if MASK & 0xff00 != 0 => self
+                .system
+                .video_unit
+                .vram
+                .write_vramcnt(VramBank::B, (val >> 8) as u8),
+            MMIO_VRAMCNT if MASK & 0xff0000 != 0 => self
+                .system
+                .video_unit
+                .vram
+                .write_vramcnt(VramBank::C, (val >> 16) as u8),
+            MMIO_VRAMCNT if MASK & 0xff000000 != 0 => self
+                .system
+                .video_unit
+                .vram
+                .write_vramcnt(VramBank::D, (val >> 24) as u8),
             MMIO_POSTFLG => {
                 if MASK & 0xff != 0 {
                     self.write_postflg(val as u8)
