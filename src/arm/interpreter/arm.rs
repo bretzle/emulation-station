@@ -54,20 +54,84 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         todo!()
     }
 
-    pub(in crate::arm) fn arm_single_data_swap(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_single_data_swap(&mut self, instruction: u32) {
+        let ArmSingleDataSwap { rm, rd, rn, byte } = ArmSingleDataSwap::decode(instruction);
+        let addr = self.state.gpr[rn as usize];
+        let data;
+
+        if byte {
+            data = self.memory.read_byte(addr) as u32;
+            self.memory.write_byte(addr, self.state.gpr[rm as usize] as u8);
+        } else {
+            data = self.read_word_rotate(addr);
+            self.memory.write_word(addr, self.state.gpr[rm as usize]);
+        }
+
+        self.state.gpr[rd as usize] = data;
+        self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_multiply(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_multiply(&mut self, instruction: u32) {
+        let ArmMultiply {
+            set_flags,
+            accumulate,
+            rm,
+            rs,
+            rn,
+            rd,
+        } = ArmMultiply::decode(instruction);
+        let mut result = self.state.gpr[rm as usize] * self.state.gpr[rs as usize];
+
+        if accumulate {
+            result += self.state.gpr[rn as usize]
+        }
+
+        if set_flags {
+            self.set_nz(result)
+        }
+
+        self.state.gpr[rd as usize] = result;
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_saturating_add_subtract(&mut self, _: u32) {
         todo!()
     }
 
-    pub(in crate::arm) fn arm_multiply_long(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_multiply_long(&mut self, instruction: u32) {
+        let ArmMultiplyLong {
+            set_flags,
+            accumulate,
+            sign,
+            rm,
+            rs,
+            rdlo,
+            rdhi,
+        } = ArmMultiplyLong::decode(instruction);
+
+        const fn sign_extend(x: u32) -> i64 {
+            (x as u64).wrapping_shl(32).wrapping_shr(32) as i64
+        }
+
+        let mut result = if sign {
+            sign_extend(self.state.gpr[rm as usize]) * sign_extend(self.state.gpr[rs as usize])
+        } else {
+            (self.state.gpr[rm as usize] as i64) * (self.state.gpr[rs as usize] as i64)
+        };
+
+        if accumulate {
+            result += ((self.state.gpr[rdhi as usize] as i64) << 32)
+                | (self.state.gpr[rdlo as usize] as i64)
+        }
+
+        if set_flags {
+            self.state.cpsr.set_n(result >> 63 != 0);
+            self.state.cpsr.set_z(result == 0);
+        }
+
+        self.state.gpr[rdhi as usize] = (result >> 32) as u32;
+        self.state.gpr[rdlo as usize] = (result & 0xffffffff) as u32;
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_halfword_data_transfer(&mut self, instruction: u32) {
@@ -88,7 +152,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
 
         let mut addr = self.state.gpr[rn as usize];
-        let do_writeback = !load || rd != rn;
+        let mut do_writeback = !load || rd != rn;
         let mut op2 = match rhs {
             ArmHalfwordDataTransferRhs::Imm(val) => val,
             ArmHalfwordDataTransferRhs::Reg(rm) => self.state.gpr[rm as usize],
@@ -114,7 +178,24 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                         .write_half(addr, self.state.gpr[rd as usize] as u16);
                 }
             }
-            (_, true) => todo!(),
+            (_, true) => {
+                if load {
+                    self.state.gpr[rd as usize] = sign_extend::<8>(self.memory.read_byte(addr) as u32);
+                } else if self.arch == Arch::ARMv5 {
+                    if rd as usize & 0x1 != 0 {
+                        error!("Interpreter: undefined ldrd exception")
+                    }
+
+                    self.state.gpr[rd as usize] = self.memory.read_word(addr);
+                    self.state.gpr[rd as usize + 1] = self.memory.read_word(addr + 4);
+
+                    do_writeback = rn as usize == (rd as usize + 1);
+
+                    if rd == GPR::LR {
+                        self.arm_flush_pipeline()
+                    }
+                }
+            }
             _ => {}
         }
 
@@ -157,8 +238,24 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_status_store_immediate(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_status_store_immediate(&mut self, instruction: u32) {
+        let ArmStatusStore { spsr, mask, rhs } = ArmStatusStore::decode(instruction);
+        let val = match rhs {
+            ArmStatusStoreRhs::Imm(rotated) => rotated,
+            ArmStatusStoreRhs::Reg(_) => unreachable!(),
+        };
+
+        if spsr {
+            let spsr = self.state.spsr_mut();
+            spsr.0 = (spsr.0 & !mask) | (val & mask);
+        } else {
+            if mask & 0xff != 0{
+                self.switch_mode((val & 0x1f).into())
+            }
+            self.state.cpsr.0 = (self.state.cpsr.0 & !mask) | (val & mask)
+        }
+
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_block_data_transfer(&mut self, instruction: u32) {
@@ -285,7 +382,15 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
 
         let mut op2 = match rhs {
             ArmSingleDataTransferRhs::Imm(imm) => imm,
-            ArmSingleDataTransferRhs::Reg { .. } => todo!(),
+            ArmSingleDataTransferRhs::Reg {
+                rm,
+                shift_type,
+                amount,
+            } => {
+                let (result, carry) =
+                    self.barrel_shifter(self.state.gpr[rm as usize], shift_type, amount, true);
+                result
+            }
         };
 
         if !up {

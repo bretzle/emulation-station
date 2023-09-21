@@ -5,6 +5,7 @@ use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
 use crate::core::hardware::cartridge::Cartridge;
 use crate::core::hardware::dma::Dma;
+use crate::core::hardware::input::Input;
 use crate::core::scheduler::Scheduler;
 use crate::core::video::VideoUnit;
 use crate::util::Shared;
@@ -18,10 +19,10 @@ pub mod video;
 
 pub struct System {
     // arm7: (),
-    pub arm9: Arm9,
+    arm9: Arm9,
     cartridge: Cartridge,
     pub video_unit: VideoUnit,
-    // input: (),
+    pub input: Input,
     // spu: (),
     dma7: Dma,
     dma9: Dma,
@@ -51,6 +52,7 @@ impl System {
             arm9: Arm9::new(system),
             cartridge: Cartridge::new(system),
             video_unit: VideoUnit::new(system),
+            input: Input::new(),
             dma7: Dma::new(Arch::ARMv4, system),
             dma9: Dma::new(Arch::ARMv5, system),
             scheduler: Scheduler::new(system),
@@ -84,7 +86,7 @@ impl System {
             let mut cycles = self.scheduler.get_event_time() - self.scheduler.get_current_time();
 
             if !self.arm9.is_halted() {
-                cycles = cycles.min(16);
+                cycles = cycles.min(32);
             }
 
             self.arm9.run(2 * cycles);

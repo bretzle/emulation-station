@@ -10,10 +10,8 @@ const fn get_field<const START: usize, const SIZE: usize>(val: u32) -> u32 {
     (val >> START) & !(u32::MAX << SIZE)
 }
 
-const fn sign_extend<const N: usize>(val: u32) -> u32 {
+pub const fn sign_extend<const N: usize>(val: u32) -> u32 {
     let shift = (8 * size_of::<u32>() - N) as u32;
-    // ((val as i32) << shift) as u32 >> shift
-    // let notherbits = size_of_val(&x) as u32 * 8 - nbits;
     val.wrapping_shl(shift).wrapping_shr(shift)
 }
 
@@ -360,5 +358,69 @@ impl ArmStatusLoad {
         let spsr = bit::<22>(instruction);
         let rd = get_field::<12, 4>(instruction).into();
         Self { spsr, rd }
+    }
+}
+
+pub struct ArmMultiply {
+    pub set_flags: bool,
+    pub accumulate: bool,
+    pub rm: GPR,
+    pub rs: GPR,
+    pub rn: GPR,
+    pub rd: GPR,
+}
+
+impl ArmMultiply {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            set_flags: bit::<20>(instruction),
+            accumulate: bit::<21>(instruction),
+            rm: get_field::<0, 4>(instruction).into(),
+            rs: get_field::<8, 4>(instruction).into(),
+            rn: get_field::<12, 4>(instruction).into(),
+            rd: get_field::<16, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ArmMultiplyLong {
+    pub set_flags: bool,
+    pub accumulate: bool,
+    pub sign: bool,
+    pub rm: GPR,
+    pub rs: GPR,
+    pub rdlo: GPR,
+    pub rdhi: GPR,
+}
+
+impl ArmMultiplyLong {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            set_flags: bit::<20>(instruction),
+            accumulate: bit::<21>(instruction),
+            sign: bit::<22>(instruction),
+            rm: get_field::<0, 4>(instruction).into(),
+            rs: get_field::<8, 4>(instruction).into(),
+            rdlo: get_field::<12, 4>(instruction).into(),
+            rdhi: get_field::<16, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ArmSingleDataSwap {
+    pub rm: GPR,
+    pub rd: GPR,
+    pub rn: GPR,
+    pub byte: bool,
+}
+
+impl ArmSingleDataSwap {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rd: get_field::<12, 4>(instruction).into(),
+            rn: get_field::<16, 4>(instruction).into(),
+            byte: bit::<22>(instruction),
+        }
     }
 }

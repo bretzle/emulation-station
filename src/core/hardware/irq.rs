@@ -54,9 +54,15 @@ impl<M: Memory, C: Coprocessor> Irq<M, C> {
         todo!()
     }
 
-    pub const fn read_ime(&self) -> bool {self.ime}
-    pub const fn read_ie(&self) -> u32 {self.ie}
-    pub const fn read_irf(&self) -> u32 {self.irf}
+    pub const fn read_ime(&self) -> bool {
+        self.ime
+    }
+    pub const fn read_ie(&self) -> u32 {
+        self.ie
+    }
+    pub const fn read_irf(&self) -> u32 {
+        self.irf
+    }
 
     pub fn write_ime(&mut self, val: u32, mut mask: u32) {
         self.ime = val & 1 != 0;

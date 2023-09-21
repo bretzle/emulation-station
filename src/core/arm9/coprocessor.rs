@@ -46,22 +46,30 @@ impl Coprocessor for Arm9Coprocessor {
         match (cn << 16) | (cm << 8) | cp {
             0x010000 => {
                 self.control.0 = val;
-                self.memory.dtcm.enable_reads  = self.control.dtcm_enable() && !self.control.dtcm_write_only();
+                self.memory.dtcm.enable_reads =
+                    self.control.dtcm_enable() && !self.control.dtcm_write_only();
                 self.memory.dtcm.enable_writes = self.control.dtcm_enable();
-                self.memory.itcm.enable_reads  = self.control.itcm_enable() && !self.control.itcm_write_only();
+                self.memory.itcm.enable_reads =
+                    self.control.itcm_enable() && !self.control.itcm_write_only();
                 self.memory.itcm.enable_writes = self.control.itcm_enable();
             }
             0x090100 => {
                 self.dtcm_control.0 = val;
                 self.memory.dtcm.base = self.dtcm_control.base() << 12;
                 self.memory.dtcm.limit = self.memory.dtcm.base + (512 << self.dtcm_control.size());
-                debug!("ARM9Coprocessor: dtcm base = {:x}, limit = {:x}", self.memory.dtcm.base, self.memory.dtcm.limit)
+                debug!(
+                    "ARM9Coprocessor: dtcm base = {:x}, limit = {:x}",
+                    self.memory.dtcm.base, self.memory.dtcm.limit
+                )
             }
             0x090101 => {
                 self.itcm_control.0 = val;
                 self.memory.itcm.base = 0;
-                self.memory.itcm.limit = 512 << dbg!(self.itcm_control.size());
-                debug!("ARM9Coprocessor: itcm base = {:x}, limit = {:x}", self.memory.itcm.base, self.memory.itcm.limit)
+                self.memory.itcm.limit = 512 << self.itcm_control.size();
+                debug!(
+                    "ARM9Coprocessor: itcm base = {:x}, limit = {:x}",
+                    self.memory.itcm.base, self.memory.itcm.limit
+                )
             }
             _ => error!("ARM9Coprocessor: handle register write c{cn}, c{cm}, c{cp} = {val:08x}"),
         }

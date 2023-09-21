@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use crate::arm::cpu::Arch;
+use std::rc::Rc;
 
 use crate::bitfield;
 use crate::core::hardware::dma::DmaTiming;

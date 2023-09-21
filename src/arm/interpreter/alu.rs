@@ -20,17 +20,17 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     pub fn alu_cmp(&mut self, op1: u32, op2: u32) {
-        let (result, overflow) = op1.overflowing_sub(op2);
+        let result = op1 - op2;
         self.set_nz(result);
         self.state.cpsr.set_c(op1 >= op2);
-        self.state.cpsr.set_v(overflow)
+        self.state.cpsr.set_v(sub_overflow(op1, op2, result))
     }
 
     pub fn alu_cmn(&mut self, op1: u32, op2: u32) {
-        let (result, overflow) = op1.overflowing_add(op2);
+        let result = op1 + op2;
         self.set_nz(result);
         self.state.cpsr.set_c(op1 < op2);
-        self.state.cpsr.set_v(overflow)
+        self.state.cpsr.set_v(add_overflow(op1, op2, result))
     }
 
     pub fn alu_tst(&mut self, op1: u32, op2: u32) {
@@ -38,11 +38,11 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     pub fn alu_add(&mut self, op1: u32, op2: u32, set_flags: bool) -> u32 {
-        let (result, overflow) = op1.overflowing_add(op2);
+        let result = op1 + op2;
         if set_flags {
             self.set_nz(result);
             self.state.cpsr.set_c(result < op1);
-            self.state.cpsr.set_v(overflow);
+            self.state.cpsr.set_v(add_overflow(op1, op2, result));
         }
         result
     }
@@ -53,7 +53,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         if set_flags {
             self.set_nz(result);
             self.state.cpsr.set_c(result64 >> 32 != 0);
-            self.state.cpsr.set_v(op1.overflowing_add(op2).1);
+            self.state.cpsr.set_v(add_overflow(op1, op2, result));
         }
         result
     }
@@ -66,7 +66,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             self.state
                 .cpsr
                 .set_c((op1 as u64) >= ((op2 as u64) + (op3 as u64)));
-            self.state.cpsr.set_v(op1.overflowing_sub(op2).1);
+            self.state.cpsr.set_v(sub_overflow(op1, op2, result));
         }
         result
     }
@@ -80,11 +80,11 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     pub fn alu_sub(&mut self, op1: u32, op2: u32, set_flags: bool) -> u32 {
-        let (result, overflow) = op1.overflowing_sub(op2);
+        let result = op1 - op2;
         if set_flags {
             self.set_nz(result);
             self.state.cpsr.set_c(op1 >= op2);
-            self.state.cpsr.set_v(overflow);
+            self.state.cpsr.set_v(sub_overflow(op1, op2, result));
         }
         result
     }
@@ -290,4 +290,12 @@ mod arithmetic {
         let result = val.rotate_right(amount);
         (result, Some(result >> 31 != 0))
     }
+}
+
+fn add_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
+    ((!(lhs ^ rhs) & (rhs ^ result)) >> 31) != 0
+}
+
+fn sub_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
+    (((lhs ^ rhs) & (lhs ^ result)) >> 31) != 0
 }

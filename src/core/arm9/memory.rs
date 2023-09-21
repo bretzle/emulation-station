@@ -1,7 +1,7 @@
 use std::mem::size_of;
 use std::ptr::{addr_of, addr_of_mut};
 
-use log::warn;
+use log::{error, warn};
 
 use crate::arm::coprocessor::Tcm;
 use crate::arm::cpu::Arch;
@@ -113,7 +113,7 @@ impl Arm9Memory {
             let val = val;
             let offset = (addr - itcm.base) & itcm.mask;
             unsafe { *ptr.add(offset as usize).cast() = val };
-            return  true;
+            return true;
         }
 
         // TODO: if bus = Data
@@ -144,7 +144,7 @@ impl Arm9Memory {
             return Some(unsafe {
                 let offset = (addr - itcm.base) & itcm.mask;
                 *itcm.data.add(offset as usize).cast::<T>()
-            })
+            });
         }
 
         // TODO: if bus = Data
@@ -293,6 +293,7 @@ impl Memory for Arm9Memory {
 
 const MMIO_DISPCNT: u32 = mmio!(0x04000000);
 const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
+const MMIO_KEYINPUT: u32 = mmio!(0x04000130);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
@@ -403,6 +404,14 @@ impl Arm9Memory {
                 }
                 if MASK & 0xffff0000 != 0 {
                     val |= self.system.video_unit.read_vcount() << 16
+                }
+            }
+            MMIO_KEYINPUT => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.input.read_keyinput() as u32
+                }
+                if MASK & 0xffff0000 != 0 {
+                    error!("ARM9Memory: handle keycnt read")
                 }
             }
             _ => warn!(
