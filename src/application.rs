@@ -1,9 +1,11 @@
 use log::info;
-use minifb::{Key, KeyRepeat, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Scale, Window, WindowOptions};
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
 
 use crate::core::config::BootMode;
 use crate::core::System;
+use crate::core::video::Screen;
 use crate::util::Shared;
 
 pub struct Application {
@@ -16,6 +18,7 @@ pub struct Application {
 impl Application {
     pub fn new() -> Self {
         let opts = WindowOptions {
+            scale: Scale::X2,
             ..Default::default()
         };
         let window = Window::new("Emulation Station", 256, 192 * 2, opts).unwrap();
@@ -28,17 +31,22 @@ impl Application {
     }
 
     pub fn start(&mut self) {
-        self.boot_game("roms/rockwrestler.nds");
+        self.boot_game("roms/armwrestler.nds");
+        let start = Instant::now();
 
         while self.window.is_open() {
-            self.system.run_frame();
-            // if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
+            // if start.elapsed() >= Duration::from_secs(5) {
+            //     self.system.step();
+            //     println!("{:08x}", self.system.arm9.cpu.instruction);
+            // } else {
             //     self.system.run_frame();
             // }
-            let top = self.system.video_unit.fetch_framebuffer(true);
-            let bot = self.system.video_unit.fetch_framebuffer(false);
-            self.framebuffer[..256 * 192].copy_from_slice(bot);
-            self.framebuffer[256 * 192..].copy_from_slice(top);
+            self.system.run_frame();
+
+            let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
+            let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
+            self.framebuffer[..256 * 192].copy_from_slice(top);
+            self.framebuffer[256 * 192..].copy_from_slice(bot);
 
             // dbg!(top.iter().collect::<HashSet<_>>());
             // dbg!(bot.iter().collect::<HashSet<_>>());

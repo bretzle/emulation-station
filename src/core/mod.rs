@@ -18,7 +18,7 @@ pub mod video;
 
 pub struct System {
     // arm7: (),
-    arm9: Arm9,
+    pub arm9: Arm9,
     cartridge: Cartridge,
     pub video_unit: VideoUnit,
     // input: (),
@@ -92,9 +92,14 @@ impl System {
             self.scheduler.run();
         }
 
-        // self.arm9.run(1);
-        // self.scheduler.tick(1);
-        // self.scheduler.run();
+        self.video_unit.ppu_a.on_finish_frame();
+        self.video_unit.ppu_b.on_finish_frame();
+    }
+
+    pub fn step(&mut self) {
+        self.arm9.run(1);
+        self.scheduler.tick(1);
+        self.scheduler.run();
 
         self.video_unit.ppu_a.on_finish_frame();
         self.video_unit.ppu_b.on_finish_frame();

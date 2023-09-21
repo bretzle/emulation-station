@@ -1,4 +1,4 @@
-use log::error;
+use log::{debug, error};
 
 use crate::arm::coprocessor::Coprocessor;
 use crate::bitfield;
@@ -30,29 +30,38 @@ impl Arm9Coprocessor {
 
 impl Coprocessor for Arm9Coprocessor {
     fn read(&mut self, cn: u32, cm: u32, cp: u32) -> u32 {
-        todo!()
+        match (cn << 16) | (cm << 8) | cp {
+            0x000001 => 0x0f0d2112, // chip id
+            0x010000 => self.control.0,
+            0x090100 => self.dtcm_control.0,
+            0x090101 => self.itcm_control.0,
+            _ => {
+                error!("ARM9Coprocessor: handle register read c{cn}, c{cm}, c{cp}");
+                0
+            }
+        }
     }
 
     fn write(&mut self, cn: u32, cm: u32, cp: u32, val: u32) {
         match (cn << 16) | (cm << 8) | cp {
             0x010000 => {
                 self.control.0 = val;
-                self.memory.dtcm.enable_reads =
-                    self.control.dtcm_enable() && !self.control.dtcm_write_only();
+                self.memory.dtcm.enable_reads  = self.control.dtcm_enable() && !self.control.dtcm_write_only();
                 self.memory.dtcm.enable_writes = self.control.dtcm_enable();
-                self.memory.itcm.enable_reads =
-                    self.control.itcm_enable() && !self.control.itcm_write_only();
+                self.memory.itcm.enable_reads  = self.control.itcm_enable() && !self.control.itcm_write_only();
                 self.memory.itcm.enable_writes = self.control.itcm_enable();
             }
             0x090100 => {
                 self.dtcm_control.0 = val;
                 self.memory.dtcm.base = self.dtcm_control.base() << 12;
-                self.memory.dtcm.limit = self.memory.dtcm.base + (512 << self.dtcm_control.size())
+                self.memory.dtcm.limit = self.memory.dtcm.base + (512 << self.dtcm_control.size());
+                debug!("ARM9Coprocessor: dtcm base = {:x}, limit = {:x}", self.memory.dtcm.base, self.memory.dtcm.limit)
             }
             0x090101 => {
                 self.itcm_control.0 = val;
                 self.memory.itcm.base = 0;
-                self.memory.itcm.limit = 512 << self.itcm_control.size();
+                self.memory.itcm.limit = 512 << dbg!(self.itcm_control.size());
+                debug!("ARM9Coprocessor: itcm base = {:x}, limit = {:x}", self.memory.itcm.base, self.memory.itcm.limit)
             }
             _ => error!("ARM9Coprocessor: handle register write c{cn}, c{cm}, c{cp} = {val:08x}"),
         }
@@ -101,8 +110,8 @@ bitfield! {
 bitfield! {
     struct TcmControl(u32) {
         // 0
-        size: u32 => 2 | 6,
-        // 7 | 12
-        base: u32 => 13 | 31
+        size: u32 => 1 | 5,
+        // 6 | 11
+        base: u32 => 12 | 31
     }
 }

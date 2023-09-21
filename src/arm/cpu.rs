@@ -24,7 +24,7 @@ pub struct Cpu<M, C> {
     // interpreter stuff
     decoder: Decoder<M, C>,
     pipeline: [u32; 2],
-    instruction: u32,
+    pub instruction: u32,
     condition_table: [[bool; 16]; 16],
     // jit stuff
     // todo
@@ -74,7 +74,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
 
                 if self.evaluate_cond(self.instruction >> 28) {
-                    // println!("{:x}", self.instruction);
+                    // log::info!("{:08x} regs: {:?}", self.instruction, self.state.gpr);
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                 } else {
@@ -197,5 +197,9 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     pub fn set_nz(&mut self, res: u32) {
         self.state.cpsr.set_n(res >> 31 != 0);
         self.state.cpsr.set_z(res == 0);
+    }
+
+    pub fn update_irq(&mut self, irq: bool) {
+        self.irq = irq;
     }
 }

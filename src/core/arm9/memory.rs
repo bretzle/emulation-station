@@ -1,8 +1,10 @@
 use std::mem::size_of;
+use std::ptr::{addr_of, addr_of_mut};
 
 use log::warn;
 
 use crate::arm::coprocessor::Tcm;
+use crate::arm::cpu::Arch;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
 use crate::core::video::vram::VramBank;
 use crate::core::System;
@@ -107,7 +109,11 @@ impl Arm9Memory {
         if itcm.enable_writes && addr >= itcm.base && addr < itcm.limit {
             // common::write<T>(itcm.data, value, (addr - itcm.config.base) & itcm.mask);
             // return;
-            todo!()
+            let ptr = itcm.data;
+            let val = val;
+            let offset = (addr - itcm.base) & itcm.mask;
+            unsafe { *ptr.add(offset as usize).cast() = val };
+            return  true;
         }
 
         // TODO: if bus = Data
@@ -129,13 +135,16 @@ impl Arm9Memory {
         false
     }
 
-    fn tcm_read<T>(&mut self, addr: u32) -> Option<T> {
+    fn tcm_read<T: Copy>(&mut self, addr: u32) -> Option<T> {
         let Self { itcm, dtcm, .. } = self;
 
         // TODO: if bus != System
         if itcm.enable_reads && addr >= itcm.base && addr < itcm.limit {
             // return common::read<T>(itcm.data, (addr - itcm.config.base) & itcm.mask);
-            todo!()
+            return Some(unsafe {
+                let offset = (addr - itcm.base) & itcm.mask;
+                *itcm.data.add(offset as usize).cast::<T>()
+            })
         }
 
         // TODO: if bus = Data
@@ -150,73 +159,6 @@ impl Arm9Memory {
         }
 
         None
-    }
-
-    fn mmio_write_byte(&mut self, addr: u32, val: u8) {
-        let mirrored = val as u32 * 0x01010101;
-        match addr & 0x3 {
-            0x0 => self.mmio_write::<0x000000ff>(addr & !0x3, mirrored),
-            0x1 => self.mmio_write::<0x0000ff00>(addr & !0x3, mirrored),
-            0x2 => self.mmio_write::<0x00ff0000>(addr & !0x3, mirrored),
-            0x3 => self.mmio_write::<0xff000000>(addr & !0x3, mirrored),
-            _ => unreachable!(),
-        }
-    }
-
-    fn mmio_write_half(&mut self, addr: u32, val: u16) {
-        let mirrored = val as u32 * 0x00010001;
-        match addr & 0x2 {
-            0x0 => self.mmio_write::<0x0000ffff>(addr & !0x2, mirrored),
-            0x2 => self.mmio_write::<0xffff0000>(addr & !0x2, mirrored),
-            _ => unreachable!(),
-        }
-    }
-
-    fn mmio_write_word(&mut self, addr: u32, val: u32) {
-        self.mmio_write::<0xffffffff>(addr, val)
-    }
-
-    fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
-        const MMIO_DISPCNT: u32 = mmio!(0x04000000);
-        const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
-        const MMIO_POSTFLG: u32 = mmio!(0x04000300);
-        const MMIO_POWCNT1: u32 = mmio!(0x04000304);
-
-        match mmio!(addr) {
-            MMIO_DISPCNT => self.system.video_unit.ppu_a.write_dispcnt(val, MASK),
-            MMIO_VRAMCNT if MASK & 0xff != 0 => self
-                .system
-                .video_unit
-                .vram
-                .write_vramcnt(VramBank::A, val as u8),
-            MMIO_VRAMCNT if MASK & 0xff00 != 0 => self
-                .system
-                .video_unit
-                .vram
-                .write_vramcnt(VramBank::B, (val >> 8) as u8),
-            MMIO_VRAMCNT if MASK & 0xff0000 != 0 => self
-                .system
-                .video_unit
-                .vram
-                .write_vramcnt(VramBank::C, (val >> 16) as u8),
-            MMIO_VRAMCNT if MASK & 0xff000000 != 0 => self
-                .system
-                .video_unit
-                .vram
-                .write_vramcnt(VramBank::D, (val >> 24) as u8),
-            MMIO_POSTFLG => {
-                if MASK & 0xff != 0 {
-                    self.write_postflg(val as u8)
-                }
-            }
-            MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
-            _ => warn!(
-                "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
-                get_access_size(MASK),
-                addr + get_access_offset(MASK),
-                (val & MASK) >> (get_access_offset(MASK) * 8)
-            ),
-        }
     }
 
     fn write_postflg(&mut self, val: u8) {
@@ -249,24 +191,53 @@ fn get_access_offset(mut mask: u32) -> u32 {
 
 impl Memory for Arm9Memory {
     fn read_byte(&mut self, addr: u32) -> u8 {
-        todo!()
+        if let Some(val) = self.tcm_read::<u8>(addr) {
+            return val;
+        }
+
+        match addr >> 24 {
+            0x04 => self.mmio_read_byte(addr),
+            0x05 => todo!(),
+            0x06 => todo!(),
+            0x07 => todo!(),
+            0x08 | 0x09 => todo!(),
+            _ => {
+                warn!("ARM9Memory: handle 8-bit read {addr:08x}");
+                0
+            }
+        }
     }
 
     fn read_half(&mut self, addr: u32) -> u16 {
         let addr = addr & !1;
-        todo!()
-    }
-
-    fn read_word(&mut self, addr: u32) -> u32 {
-        let addr2 = addr & !3;
-        if let Some(val) = self.tcm_read::<u32>(addr2) {
+        if let Some(val) = self.tcm_read::<u16>(addr) {
             return val;
         }
 
-        match addr2 >> 24 {
-            0x04 => todo!(),
+        match addr >> 24 {
+            0x04 => self.mmio_read_half(addr),
             0x05 => todo!(),
-            0x06 => self.system.video_unit.vram.read(addr2),
+            0x06 => todo!(),
+            0x07 => todo!(),
+            0x08 | 0x09 => todo!(),
+            _ => {
+                warn!("ARM9Memory: handle 16-bit read {addr:08x}");
+                0
+            }
+        }
+    }
+
+    fn read_word(&mut self, addr: u32) -> u32 {
+        let addr = addr & !3;
+        if let Some(val) = self.tcm_read::<u32>(addr) {
+            return val;
+        }
+
+        match addr >> 24 {
+            0x00 | 0x01 => 0,
+            0x04 => self.mmio_read_word(addr),
+            0x05 => todo!(),
+            0x06 => self.system.video_unit.vram.read(addr),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             0x0a => todo!(),
@@ -312,10 +283,134 @@ impl Memory for Arm9Memory {
             0x00 | 0x01 => {}
             0x04 => self.mmio_write_word(addr, val),
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.write(addr, val),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             _ => warn!("ARM9Memory: handle 32-bit write {addr:08x} = {val:08x}"),
         }
+    }
+}
+
+const MMIO_DISPCNT: u32 = mmio!(0x04000000);
+const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
+const MMIO_IME: u32 = mmio!(0x04000208);
+const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
+const MMIO_POSTFLG: u32 = mmio!(0x04000300);
+const MMIO_POWCNT1: u32 = mmio!(0x04000304);
+
+// mmio write
+impl Arm9Memory {
+    fn mmio_write_byte(&mut self, addr: u32, val: u8) {
+        let mirrored = val as u32 * 0x01010101;
+        match addr & 0x3 {
+            0x0 => self.mmio_write::<0x000000ff>(addr & !0x3, mirrored),
+            0x1 => self.mmio_write::<0x0000ff00>(addr & !0x3, mirrored),
+            0x2 => self.mmio_write::<0x00ff0000>(addr & !0x3, mirrored),
+            0x3 => self.mmio_write::<0xff000000>(addr & !0x3, mirrored),
+            _ => unreachable!(),
+        }
+    }
+
+    fn mmio_write_half(&mut self, addr: u32, val: u16) {
+        let mirrored = val as u32 * 0x00010001;
+        match addr & 0x2 {
+            0x0 => self.mmio_write::<0x0000ffff>(addr & !0x2, mirrored),
+            0x2 => self.mmio_write::<0xffff0000>(addr & !0x2, mirrored),
+            _ => unreachable!(),
+        }
+    }
+
+    fn mmio_write_word(&mut self, addr: u32, val: u32) {
+        self.mmio_write::<0xffffffff>(addr, val)
+    }
+
+    fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
+        match mmio!(addr) {
+            MMIO_DISPCNT => self.system.video_unit.ppu_a.write_dispcnt(val, MASK),
+            MMIO_IME => self.system.arm9.get_irq().write_ime(val, MASK),
+            MMIO_VRAMCNT => {
+                if MASK & 0xff != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::A, val as u8)
+                }
+                if MASK & 0xff00 != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::B, (val >> 8) as u8)
+                }
+                if MASK & 0xff0000 != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::C, (val >> 16) as u8)
+                }
+                if MASK & 0xff000000 != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::D, (val >> 24) as u8)
+                }
+            }
+            MMIO_POSTFLG => {
+                if MASK & 0xff != 0 {
+                    self.write_postflg(val as u8)
+                }
+            }
+            MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
+            _ => warn!(
+                "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
+                get_access_size(MASK),
+                addr + get_access_offset(MASK),
+                (val & MASK) >> (get_access_offset(MASK) * 8)
+            ),
+        }
+    }
+}
+
+// mmio read
+impl Arm9Memory {
+    fn mmio_read_byte(&mut self, addr: u32) -> u8 {
+        match addr & 0x3 {
+            0 => (self.mmio_read::<0x000000ff>(addr & !0x3) >> 0) as u8,
+            1 => (self.mmio_read::<0x0000ff00>(addr & !0x3) >> 8) as u8,
+            2 => (self.mmio_read::<0x00ff0000>(addr & !0x3) >> 16) as u8,
+            3 => (self.mmio_read::<0xff000000>(addr & !0x3) >> 24) as u8,
+            _ => unreachable!(),
+        }
+    }
+
+    fn mmio_read_half(&mut self, addr: u32) -> u16 {
+        match addr & 0x2 {
+            0 => (self.mmio_read::<0x0000ffff>(addr & !0x2) >> 0) as u16,
+            1 => (self.mmio_read::<0xffff0000>(addr & !0x2) >> 16) as u16,
+            _ => unreachable!(),
+        }
+    }
+
+    fn mmio_read_word(&mut self, addr: u32) -> u32 {
+        self.mmio_read::<0xffffffff>(addr)
+    }
+
+    fn mmio_read<const MASK: u32>(&mut self, addr: u32) -> u32 {
+        let mut val = 0;
+        match mmio!(addr) {
+            MMIO_DISPSTAT => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.video_unit.read_dispstat(Arch::ARMv5)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= self.system.video_unit.read_vcount() << 16
+                }
+            }
+            _ => warn!(
+                "ARM9Memory: unmapped {}-bit read {:08x}",
+                get_access_size(MASK),
+                addr + get_access_offset(MASK),
+            ),
+        }
+        val
     }
 }

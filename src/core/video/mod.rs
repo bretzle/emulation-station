@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use crate::arm::cpu::Arch;
 
 use crate::bitfield;
 use crate::core::hardware::dma::DmaTiming;
@@ -10,6 +11,11 @@ use crate::util::Shared;
 
 pub mod ppu;
 pub mod vram;
+
+pub enum Screen {
+    Top,
+    Bottom,
+}
 
 bitfield! {
     struct PowCnt1(u32) {
@@ -125,17 +131,12 @@ impl VideoUnit {
         scheduler.add_event(1606, &self.scanline_start_event);
     }
 
-    pub fn fetch_framebuffer(&self, top: bool) -> &[u32] {
-        if self.powcnt1.display_swap() == (top == true) {
+    pub fn fetch_framebuffer(&self, screen: Screen) -> &[u32] {
+        if self.powcnt1.display_swap() == matches!(screen, Screen::Top) {
             self.ppu_a.fetch_framebuffer()
         } else {
             self.ppu_b.fetch_framebuffer()
         }
-    }
-
-    pub fn write_powcnt1(&mut self, val: u32, mut mask: u32) {
-        mask &= 0x820f;
-        self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);
     }
 
     fn render_scanline_start(&mut self) {
@@ -206,5 +207,24 @@ impl VideoUnit {
         } else {
             self.dispstat9.set_lyc(false);
         }
+    }
+}
+
+// mmio
+impl VideoUnit {
+    pub fn read_dispstat(&mut self, arch: Arch) -> u32 {
+        match arch {
+            Arch::ARMv4 => self.dispstat7.0,
+            Arch::ARMv5 => self.dispstat9.0,
+        }
+    }
+
+    pub fn read_vcount(&mut self) -> u32 {
+        self.vcount as u32
+    }
+
+    pub fn write_powcnt1(&mut self, val: u32, mut mask: u32) {
+        mask &= 0x820f;
+        self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);
     }
 }

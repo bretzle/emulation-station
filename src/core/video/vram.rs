@@ -152,11 +152,26 @@ impl Vram {
         }
 
         if self.vramcnt[1].enable() {
-            todo!()
+            let offset = self.vramcnt[1].offset();
+            match self.vramcnt[1].mst() {
+                0 => self.lcdc.map(self.bank_b.as_mut_ptr(), 0x20000, 0x20000),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[2].enable() {
-            todo!()
+            let offset = self.vramcnt[2].offset();
+            match self.vramcnt[2].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                4 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[2].enable() && self.vramcnt[2].mst() == 2 {
@@ -166,7 +181,15 @@ impl Vram {
         }
 
         if self.vramcnt[3].enable() {
-            todo!()
+            let offset = self.vramcnt[3].offset();
+            match self.vramcnt[3].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                4 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[3].enable() && self.vramcnt[3].mst() == 2 {
@@ -176,23 +199,62 @@ impl Vram {
         }
 
         if self.vramcnt[4].enable() {
-            todo!()
+            let offset = self.vramcnt[4].offset();
+            match self.vramcnt[4].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                4 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[5].enable() {
-            todo!()
+            let offset = self.vramcnt[5].offset();
+            match self.vramcnt[5].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                4 => todo!(),
+                5 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[6].enable() {
-            todo!()
+            let offset = self.vramcnt[6].offset();
+            match self.vramcnt[6].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                4 => todo!(),
+                5 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[7].enable() {
-            todo!()
+            let offset = self.vramcnt[7].offset();
+            match self.vramcnt[7].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                _ => unreachable!(),
+            }
         }
 
         if self.vramcnt[8].enable() {
-            todo!()
+            let offset = self.vramcnt[8].offset();
+            match self.vramcnt[8].mst() {
+                0 => todo!(),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                _ => unreachable!(),
+            }
         }
     }
 }

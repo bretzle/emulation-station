@@ -352,13 +352,13 @@ impl ArmBranchExchange {
 
 pub struct ArmStatusLoad {
     pub spsr: bool,
-    pub rd: GPR
+    pub rd: GPR,
 }
 
 impl ArmStatusLoad {
     pub fn decode(instruction: u32) -> Self {
         let spsr = bit::<22>(instruction);
         let rd = get_field::<12, 4>(instruction).into();
-        Self {spsr, rd}
+        Self { spsr, rd }
     }
 }

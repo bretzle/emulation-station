@@ -4,6 +4,7 @@ use crate::arm::memory::Memory;
 use crate::arm::state::{Mode, GPR};
 use crate::core::arm9::coprocessor::Arm9Coprocessor;
 use crate::core::arm9::memory::Arm9Memory;
+use crate::core::hardware::irq::Irq;
 use crate::core::System;
 use crate::util::Shared;
 
@@ -12,18 +13,19 @@ mod memory;
 
 pub struct Arm9 {
     system: Shared<System>,
-    irq: (),
-    cpu: Box<Cpu<Arm9Memory, Arm9Coprocessor>>,
+    irq: Irq<Arm9Memory, Arm9Coprocessor>,
+    pub cpu: Shared<Cpu<Arm9Memory, Arm9Coprocessor>>,
 }
 
 impl Arm9 {
     pub fn new(system: &Shared<System>) -> Self {
         let memory = Shared::new(Arm9Memory::new(system));
         let coprocessor = Arm9Coprocessor::new(&memory);
+        let cpu = Shared::new(Cpu::new(Arch::ARMv5, memory, coprocessor));
         Self {
             system: system.clone(),
-            irq: (),
-            cpu: Box::new(Cpu::new(Arch::ARMv5, memory, coprocessor)),
+            irq: Irq::new(&cpu),
+            cpu,
         }
     }
 
@@ -77,5 +79,9 @@ impl Arm9 {
 
     pub fn get_coprocessor(&mut self) -> &mut Arm9Coprocessor {
         &mut self.cpu.coprocessor
+    }
+
+    pub fn get_irq(&mut self) -> &mut Irq<Arm9Memory, Arm9Coprocessor> {
+        &mut self.irq
     }
 }
