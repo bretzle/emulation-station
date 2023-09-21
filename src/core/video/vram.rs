@@ -1,4 +1,8 @@
-enum Bank {
+use std::ops::{BitOr, BitOrAssign};
+use crate::bitfield;
+use crate::util::Shared;
+
+pub enum VramBank {
     A,
     B,
     C,
@@ -10,19 +14,87 @@ enum Bank {
     I,
 }
 
+bitfield! {
+    #[derive(Clone, Copy, Default)]
+    struct VramCnt(u8) {
+        mst: u8 => 0 | 2,
+        offset: u8 => 3 | 4,
+        // 5 | 6
+        enable: bool => 7
+    }
+}
+
 pub struct Vram {
-    pub bga: VramRegion,
+    pub lcdc: Shared<VramRegion>,
+    pub bga: Shared<VramRegion>,
+    pub bgb: Shared<VramRegion>,
+    pub obja: Shared<VramRegion>,
+    pub objb: Shared<VramRegion>,
+    pub arm7_vram: VramRegion,
+    pub texture_data: VramRegion,
+    pub texture_palette: VramRegion,
+    pub bga_extended_palette: Shared<VramRegion>,
+    pub bgb_extended_palette: Shared<VramRegion>,
+    pub obja_extended_palette: Shared<VramRegion>,
+    pub objb_extended_palette: Shared<VramRegion>,
+
+    vramstat: u8,
+
+    vramcnt: [VramCnt; 9],
+
+    bank_a: Box<[u8; 0x20000]>,
+    bank_b: Box<[u8; 0x20000]>,
+    bank_c: Box<[u8; 0x20000]>,
+    bank_d: Box<[u8; 0x20000]>,
+    bank_e: Box<[u8; 0x10000]>,
+    bank_f: Box<[u8; 0x4000]>,
+    bank_g: Box<[u8; 0x4000]>,
+    bank_h: Box<[u8; 0x8000]>,
+    bank_i: Box<[u8; 0x4000]>,
 }
 
 impl Vram {
     pub fn new() -> Self {
         Self {
-            bga: VramRegion::default(),
+            lcdc: Default::default(),
+            bga: Default::default(),
+            obja: Default::default(),
+            bgb: Default::default(),
+            objb: Default::default(),
+            arm7_vram: Default::default(),
+            texture_data: Default::default(),
+            texture_palette: Default::default(),
+            bga_extended_palette: Default::default(),
+            bgb_extended_palette: Default::default(),
+            obja_extended_palette: Default::default(),
+            objb_extended_palette: Default::default(),
+            vramstat: 0,
+            vramcnt: [VramCnt(0); 9],
+            bank_a: Box::new([0; 0x20000]),
+            bank_b: Box::new([0; 0x20000]),
+            bank_c: Box::new([0; 0x20000]),
+            bank_d: Box::new([0; 0x20000]),
+            bank_e: Box::new([0; 0x10000]),
+            bank_f: Box::new([0; 0x4000]),
+            bank_g: Box::new([0; 0x4000]),
+            bank_h: Box::new([0; 0x8000]),
+            bank_i: Box::new([0; 0x4000]),
         }
     }
 
     pub fn reset(&mut self) {
+        self.lcdc.allocate(0xa4000);
         self.bga.allocate(0x80000);
+        self.obja.allocate(0x40000);
+        self.bgb.allocate(0x20000);
+        self.objb.allocate(0x20000);
+        self.arm7_vram.allocate(0x20000);
+        self.texture_data.allocate(0x80000);
+        self.texture_palette.allocate(0x20000);
+        self.bga_extended_palette.allocate(0x8000);
+        self.bgb_extended_palette.allocate(0x8000);
+        self.obja_extended_palette.allocate(0x2000);
+        self.objb_extended_palette.allocate(0x2000);
 
         self.reset_regions();
     }
@@ -39,6 +111,74 @@ impl Vram {
             0x4 | 0x5 => todo!(),
             0x6 | 0x7 => todo!(),
             _ => todo!(),
+        }
+    }
+
+    pub fn write_vramcnt(&mut self, bank: VramBank, mut val: u8) {
+        let masks = [0x9b, 0x9b, 0x9f, 0x9f, 0x87, 0x9f, 0x9f, 0x83, 0x83];
+        let index = bank as usize;
+        val &= masks[index];
+
+        if self.vramcnt[index].0 == val {
+            return;
+        }
+
+        self.vramcnt[index].0 = val;
+        self.reset_regions();
+
+        if self.vramcnt[0].enable() {
+            let offset = self.vramcnt[0].offset();
+            match self.vramcnt[0].mst() {
+                0 => self.lcdc.map(self.bank_a.as_mut_ptr(), 0, 0x20000),
+                1 => todo!(),
+                2 => todo!(),
+                3 => todo!(),
+                _ => unreachable!()
+            }
+        }
+
+        if self.vramcnt[1].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[2].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[2].enable() && self.vramcnt[2].mst() == 2 {
+            todo!()
+        } else {
+            self.vramstat &= !1;
+        }
+
+        if self.vramcnt[3].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[3].enable() && self.vramcnt[3].mst() == 2 {
+            todo!()
+        } else {
+            self.vramstat &= !(1 << 1);
+        }
+
+        if self.vramcnt[4].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[5].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[6].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[7].enable() {
+            todo!()
+        }
+
+        if self.vramcnt[8].enable() {
+            todo!()
         }
     }
 }
@@ -60,11 +200,11 @@ impl VramPage {
         self.banks.push(ptr);
     }
 
-    pub fn read(&mut self, addr: u32) -> u32 {
+    pub fn read<T: Default + BitOrAssign + Copy>(&mut self, addr: u32) -> T {
         unsafe {
-            let mut data = 0;
+            let mut data = T::default();
             for bank in &self.banks {
-                data |= *bank.add((addr & Self::PAGE_MASK) as usize).cast::<u32>();
+                data |= bank.add((addr & Self::PAGE_MASK) as usize).cast::<T>().read();
             }
             data
         }
@@ -93,7 +233,7 @@ impl VramRegion {
         }
     }
 
-    pub fn read(&mut self, addr: u32) -> u32 {
+    pub fn read<T: Default + BitOrAssign + Copy>(&mut self, addr: u32) -> T {
         self.get_page(addr).read(addr)
     }
 
@@ -109,11 +249,11 @@ impl VramRegion {
         }
     }
 
-    pub unsafe fn map(&mut self, ptr: *mut u8, offset: usize, length: usize) {
+    pub fn map(&mut self, ptr: *mut u8, offset: usize, length: usize) {
         let pages_to_map = length / Self::PAGE_SIZE;
         for i in 0..pages_to_map {
             let index = (offset / Self::PAGE_SIZE) + i;
-            self.pages[index].add_bank(ptr.add(i + Self::PAGE_SIZE))
+            self.pages[index].add_bank(unsafe {ptr.add(i + Self::PAGE_SIZE)})
         }
     }
 

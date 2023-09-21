@@ -80,3 +80,9 @@ impl<T> Drop for Shared<T> {
         }
     }
 }
+
+impl<T: Default> Default for Shared<T> {
+    fn default() -> Self {
+        Shared::new(T::default())
+    }
+}

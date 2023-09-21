@@ -215,7 +215,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             if opcode.byte {
                 todo!() // write byte
             } else {
-                todo!() // write word
+                self.memory.write_word(addr, self.state.gpr[opcode.rd as usize])
             }
         }
 

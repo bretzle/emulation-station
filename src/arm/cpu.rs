@@ -74,7 +74,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
 
                 if self.evaluate_cond(self.instruction >> 28) {
-                    println!("{:x}", self.instruction);
+                    // println!("{:x}", self.instruction);
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                 } else {

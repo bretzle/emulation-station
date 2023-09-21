@@ -1,4 +1,6 @@
 use crate::bitfield;
+use crate::core::video::vram::VramRegion;
+use crate::util::Shared;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -95,11 +97,11 @@ pub struct Ppu {
     obj: (),
     bg_extended_palette: (),
     obj_extended_palette: (),
-    lcdc: (),
+    lcdc: Shared<VramRegion>,
 }
 
 impl Ppu {
-    pub fn new() -> Self {
+    pub fn new(bg: &Shared<VramRegion>, obj: &Shared<VramRegion>, bg_extended: &Shared<VramRegion>, obj_extended: &Shared<VramRegion>, lcdc: &Shared<VramRegion>) -> Self {
         Self {
             dispcnt: DispCnt(0),
             bgcnt: (),
@@ -136,7 +138,7 @@ impl Ppu {
             obj: (),
             bg_extended_palette: (),
             obj_extended_palette: (),
-            lcdc: (),
+            lcdc: lcdc.clone(),
         }
     }
 
@@ -168,7 +170,7 @@ impl Ppu {
         match self.dispcnt.display_mode() {
             0 => self.render_blank_screen(line),
             1 => todo!(),
-            2 => todo!(),
+            2 => self.render_vram_display(line),
             3 => todo!(),
             _ => unreachable!(),
         }
@@ -213,6 +215,25 @@ impl Ppu {
     fn plot(&mut self, x: u16, y: u16, color: u32) {
         self.framebuffer[((256 * y) + x) as usize] = color;
     }
+
+    pub fn write_dispcnt(&mut self, val: u32, mask: u32) {
+        self.dispcnt.0 = (self.dispcnt.0 & !mask) | (val & mask)
+    }
+
+    fn render_vram_display(&mut self, line: u16) {
+        for x in 0..256 {
+            let addr = (self.dispcnt.vram_block() * 0x20000) + ((256 * line as u32) + x as u32) * 2;
+            let data = self.lcdc.read::<u16>(addr) as u32;
+            self.plot(x, line, rgb555_to_rgb666(data));
+        }
+    }
+}
+
+fn rgb555_to_rgb666(color: u32) -> u32 {
+    let r = (color & 0x1f) * 2;
+    let g = ((color >> 5) & 0x1f) * 2;
+    let b = ((color >> 10) & 0x1f) * 2;
+    (b << 12) | (g << 6) | r
 }
 
 fn rgb666_to_rgb888(colour: u32) -> u32 {

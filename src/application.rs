@@ -1,5 +1,6 @@
+use std::collections::HashSet;
 use log::info;
-use minifb::{Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Window, WindowOptions};
 
 use crate::core::config::BootMode;
 use crate::core::System;
@@ -30,12 +31,17 @@ impl Application {
         self.boot_game("roms/TinyFB.nds");
 
         while self.window.is_open() {
-            info!("frame");
             self.system.run_frame();
+            // if self.window.is_key_pressed(Key::Space, KeyRepeat::No) {
+            //     self.system.run_frame();
+            // }
             let top = self.system.video_unit.fetch_framebuffer(true);
             let bot = self.system.video_unit.fetch_framebuffer(false);
-            self.framebuffer[..256 * 192].copy_from_slice(top);
-            self.framebuffer[256 * 192..].copy_from_slice(bot);
+            self.framebuffer[..256 * 192].copy_from_slice(bot);
+            self.framebuffer[256 * 192..].copy_from_slice(top);
+
+            // dbg!(top.iter().collect::<HashSet<_>>());
+            // dbg!(bot.iter().collect::<HashSet<_>>());
 
             // dbg!(self.framebuffer.iter().filter(|p| **dbg!(p) != 0).count());
             self.window

@@ -92,6 +92,10 @@ impl System {
             self.scheduler.run();
         }
 
+        // self.arm9.run(1);
+        // self.scheduler.tick(1);
+        // self.scheduler.run();
+
         self.video_unit.ppu_a.on_finish_frame();
         self.video_unit.ppu_b.on_finish_frame();
     }

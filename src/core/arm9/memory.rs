@@ -5,6 +5,7 @@ use log::warn;
 use crate::arm::coprocessor::Tcm;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
 use crate::core::System;
+use crate::core::video::vram::VramBank;
 use crate::util::Shared;
 
 macro_rules! mmio {
@@ -176,10 +177,17 @@ impl Arm9Memory {
     }
 
     fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
+        const MMIO_DISPCNT: u32 = mmio!(0x04000000);
+        const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
         const MMIO_POSTFLG: u32 = mmio!(0x04000300);
         const MMIO_POWCNT1: u32 = mmio!(0x04000304);
 
         match mmio!(addr) {
+            MMIO_DISPCNT => self.system.video_unit.ppu_a.write_dispcnt(val, MASK),
+            MMIO_VRAMCNT if MASK & 0xff != 0 => self.system.video_unit.vram.write_vramcnt(VramBank::A, (val & 0xff) as u8),
+            MMIO_VRAMCNT if MASK & 0xff00 != 0 => todo!(),
+            MMIO_VRAMCNT if MASK & 0xff0000 != 0 => todo!(),
+            MMIO_VRAMCNT if MASK & 0xff000000 != 0 => todo!(),
             MMIO_POSTFLG => {
                 if MASK & 0xff != 0 {
                     self.write_postflg(val as u8)
@@ -243,7 +251,7 @@ impl Memory for Arm9Memory {
         match addr2 >> 24 {
             0x04 => todo!(),
             0x05 => todo!(),
-            0x06 => self.system.video_unit.vram.read(addr2),
+            0x06 => todo!(), //self.system.video_unit.vram.read(addr2),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             0x0a => todo!(),
