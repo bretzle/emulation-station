@@ -56,7 +56,6 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
             for info in &decoder.arm_list {
                 if (i & info.mask) == info.value {
                     decoder.arm_lut[i as usize] = info.handler;
-                    break;
                 }
             }
         }
@@ -93,7 +92,6 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
             for info in &decoder.thumb_list {
                 if (i & info.mask) == info.value {
                     decoder.thumb_lut[i as usize] = info.handler;
-                    break;
                 }
             }
         }
