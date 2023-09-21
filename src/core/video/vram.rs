@@ -1,6 +1,9 @@
-use std::ops::{BitOr, BitOrAssign};
 use crate::bitfield;
 use crate::util::Shared;
+use std::collections::HashSet;
+use std::fmt::Debug;
+use std::mem::size_of;
+use std::ops::{BitOr, BitOrAssign};
 
 pub enum VramBank {
     A,
@@ -114,6 +117,17 @@ impl Vram {
         }
     }
 
+    pub fn write<T: Copy + Debug + Into<u32>>(&mut self, addr: u32, val: T) {
+        let region = (addr >> 20) & 0xf;
+        match region {
+            0x0 | 0x1 => todo!(),
+            0x2 | 0x3 => todo!(),
+            0x4 | 0x5 => todo!(),
+            0x6 | 0x7 => todo!(),
+            _ => self.lcdc.write(addr, val),
+        }
+    }
+
     pub fn write_vramcnt(&mut self, bank: VramBank, mut val: u8) {
         let masks = [0x9b, 0x9b, 0x9f, 0x9f, 0x87, 0x9f, 0x9f, 0x83, 0x83];
         let index = bank as usize;
@@ -133,7 +147,7 @@ impl Vram {
                 1 => todo!(),
                 2 => todo!(),
                 3 => todo!(),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
 
@@ -204,16 +218,20 @@ impl VramPage {
         unsafe {
             let mut data = T::default();
             for bank in &self.banks {
-                data |= bank.add((addr & Self::PAGE_MASK) as usize).cast::<T>().read();
+                let offset = (addr & Self::PAGE_MASK) as usize;
+                let ptr = bank.add(offset).cast::<T>();
+                data |= *ptr;
             }
             data
         }
     }
 
-    pub fn write(&mut self, addr: u32, val: u32) {
+    pub fn write<T: Copy>(&mut self, addr: u32, val: T) {
         unsafe {
-            for bank in &self.banks {
-                *bank.add((addr & Self::PAGE_MASK) as usize).cast() = val;
+            for bank in self.banks.iter().copied() {
+                let offset = (addr & Self::PAGE_MASK) as usize;
+                let ptr = bank.add(offset).cast::<T>();
+                *ptr = val
             }
         }
     }
@@ -237,7 +255,7 @@ impl VramRegion {
         self.get_page(addr).read(addr)
     }
 
-    pub fn write(&mut self, addr: u32, val: u32) {
+    pub fn write<T: Copy>(&mut self, addr: u32, val: T) {
         self.get_page(addr).write(addr, val)
     }
 
@@ -253,7 +271,7 @@ impl VramRegion {
         let pages_to_map = length / Self::PAGE_SIZE;
         for i in 0..pages_to_map {
             let index = (offset / Self::PAGE_SIZE) + i;
-            self.pages[index].add_bank(unsafe {ptr.add(i + Self::PAGE_SIZE)})
+            self.pages[index].add_bank(unsafe { ptr.add(i * Self::PAGE_SIZE) })
         }
     }
 

@@ -247,3 +247,52 @@ impl ArmBlockDataTransfer {
         }
     }
 }
+
+pub enum ArmHalfwordDataTransferRhs {
+    Imm(u32),
+    Reg(GPR),
+}
+
+pub struct ArmHalfwordDataTransfer {
+    pub load: bool,
+    pub writeback: bool,
+    pub up: bool,
+    pub pre: bool,
+    pub half: bool,
+    pub sign: bool,
+    pub rd: GPR,
+    pub rn: GPR,
+    pub rhs: ArmHalfwordDataTransferRhs,
+}
+
+impl ArmHalfwordDataTransfer {
+    pub fn decode(instruction: u32) -> Self {
+        let load = bit::<20>(instruction);
+        let writeback = bit::<21>(instruction);
+        let imm = bit::<22>(instruction);
+        let up = bit::<23>(instruction);
+        let pre = bit::<24>(instruction);
+        let half = bit::<5>(instruction);
+        let sign = bit::<6>(instruction);
+        let rd = get_field::<12, 4>(instruction).into();
+        let rn = get_field::<16, 4>(instruction).into();
+
+        let rhs = if imm {
+            ArmHalfwordDataTransferRhs::Imm(((instruction >> 4) & 0xf0) | (instruction & 0xf))
+        } else {
+            ArmHalfwordDataTransferRhs::Reg(get_field::<0, 4>(instruction).into())
+        };
+
+        Self {
+            load,
+            writeback,
+            up,
+            pre,
+            half,
+            sign,
+            rd,
+            rn,
+            rhs,
+        }
+    }
+}

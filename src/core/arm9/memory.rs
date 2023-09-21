@@ -4,8 +4,8 @@ use log::warn;
 
 use crate::arm::coprocessor::Tcm;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
-use crate::core::System;
 use crate::core::video::vram::VramBank;
+use crate::core::System;
 use crate::util::Shared;
 
 macro_rules! mmio {
@@ -115,7 +115,7 @@ impl Arm9Memory {
             let ptr = dtcm.data;
             let val = val;
             let offset = (addr - dtcm.base) & dtcm.mask;
-            unsafe {*ptr.add(offset as usize).cast() = val};
+            unsafe { *ptr.add(offset as usize).cast() = val };
             // common::write<T>(dtcm.data, value, (addr - dtcm.config.base) & dtcm.mask);
             return true;
         }
@@ -184,7 +184,11 @@ impl Arm9Memory {
 
         match mmio!(addr) {
             MMIO_DISPCNT => self.system.video_unit.ppu_a.write_dispcnt(val, MASK),
-            MMIO_VRAMCNT if MASK & 0xff != 0 => self.system.video_unit.vram.write_vramcnt(VramBank::A, (val & 0xff) as u8),
+            MMIO_VRAMCNT if MASK & 0xff != 0 => self
+                .system
+                .video_unit
+                .vram
+                .write_vramcnt(VramBank::A, (val & 0xff) as u8),
             MMIO_VRAMCNT if MASK & 0xff00 != 0 => todo!(),
             MMIO_VRAMCNT if MASK & 0xff0000 != 0 => todo!(),
             MMIO_VRAMCNT if MASK & 0xff000000 != 0 => todo!(),
@@ -233,17 +237,16 @@ fn get_access_offset(mut mask: u32) -> u32 {
 
 impl Memory for Arm9Memory {
     fn read_byte(&mut self, addr: u32) -> u8 {
-        let addr = addr & !(size_of::<u8>() as u32 - 1);
         todo!()
     }
 
     fn read_half(&mut self, addr: u32) -> u16 {
-        let addr = addr & !(size_of::<u16>() as u32 - 1);
+        let addr = addr & !1;
         todo!()
     }
 
     fn read_word(&mut self, addr: u32) -> u32 {
-        let addr2 = addr & !(size_of::<u32>() as u32 - 1);
+        let addr2 = addr & !3;
         if let Some(val) = self.tcm_read::<u32>(addr2) {
             return val;
         }
@@ -251,7 +254,7 @@ impl Memory for Arm9Memory {
         match addr2 >> 24 {
             0x04 => todo!(),
             0x05 => todo!(),
-            0x06 => todo!(), //self.system.video_unit.vram.read(addr2),
+            0x06 => self.system.video_unit.vram.read(addr2),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             0x0a => todo!(),
@@ -263,8 +266,6 @@ impl Memory for Arm9Memory {
     }
 
     fn write_byte(&mut self, addr: u32, val: u8) {
-        let addr = addr & !(size_of::<u8>() as u32 - 1);
-
         if self.tcm_write(addr, val) {
             return;
         }
@@ -277,21 +278,21 @@ impl Memory for Arm9Memory {
     }
 
     fn write_half(&mut self, addr: u32, val: u16) {
-        let addr = addr & !(size_of::<u16>() as u32 - 1);
+        let addr = addr & !1;
         if self.tcm_write(addr, val) {
             return;
         }
         match addr >> 24 {
             0x04 => self.mmio_write_half(addr, val),
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.write(addr, val),
             0x07 => todo!(),
             _ => warn!("ARM9Memory: handle 16-bit write {addr:08x} = {val:04x}"),
         }
     }
 
     fn write_word(&mut self, addr: u32, val: u32) {
-        let addr = addr & !(size_of::<u32>() as u32 - 1);
+        let addr = addr & !3;
         if self.tcm_write(addr, val) {
             return;
         }

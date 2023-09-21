@@ -65,8 +65,20 @@ impl VideoUnit {
         let vram = Vram::new();
         Self {
             system: system.clone(),
-            ppu_a: Ppu::new(&vram.bga, &vram.obja, &vram.bga_extended_palette, &vram.obja_extended_palette, &vram.lcdc),
-            ppu_b: Ppu::new(&vram.bgb, &vram.objb, &vram.bgb_extended_palette, &vram.objb_extended_palette, &vram.lcdc),
+            ppu_a: Ppu::new(
+                &vram.bga,
+                &vram.obja,
+                &vram.bga_extended_palette,
+                &vram.obja_extended_palette,
+                &vram.lcdc,
+            ),
+            ppu_b: Ppu::new(
+                &vram.bgb,
+                &vram.objb,
+                &vram.bgb_extended_palette,
+                &vram.objb_extended_palette,
+                &vram.lcdc,
+            ),
             vram,
             gpu: (),
             palette_ram: [0; 0x800],

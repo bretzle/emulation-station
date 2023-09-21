@@ -1,3 +1,5 @@
+#![feature(pointer_is_aligned)]
+
 use log::LevelFilter;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 

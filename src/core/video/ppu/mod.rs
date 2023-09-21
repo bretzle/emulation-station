@@ -1,6 +1,7 @@
 use crate::bitfield;
 use crate::core::video::vram::VramRegion;
 use crate::util::Shared;
+use std::collections::HashSet;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -101,7 +102,13 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    pub fn new(bg: &Shared<VramRegion>, obj: &Shared<VramRegion>, bg_extended: &Shared<VramRegion>, obj_extended: &Shared<VramRegion>, lcdc: &Shared<VramRegion>) -> Self {
+    pub fn new(
+        bg: &Shared<VramRegion>,
+        obj: &Shared<VramRegion>,
+        bg_extended: &Shared<VramRegion>,
+        obj_extended: &Shared<VramRegion>,
+        lcdc: &Shared<VramRegion>,
+    ) -> Self {
         Self {
             dispcnt: DispCnt(0),
             bgcnt: (),

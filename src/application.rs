@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use log::info;
 use minifb::{Key, KeyRepeat, Window, WindowOptions};
+use std::collections::HashSet;
 
 use crate::core::config::BootMode;
 use crate::core::System;

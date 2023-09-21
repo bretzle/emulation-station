@@ -62,8 +62,61 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         todo!()
     }
 
-    pub(in crate::arm) fn arm_halfword_data_transfer(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_halfword_data_transfer(&mut self, instruction: u32) {
+        let ArmHalfwordDataTransfer {
+            load,
+            writeback,
+            up,
+            pre,
+            half,
+            sign,
+            rd,
+            rn,
+            rhs,
+        } = ArmHalfwordDataTransfer::decode(instruction);
+
+        if rd == GPR::PC {
+            error!("Interpreter: handle rd == 15 in arm_halfword_data_transfer")
+        }
+
+        let mut addr = self.state.gpr[rn as usize];
+        let do_writeback = !load || rd != rn;
+        let mut op2 = match rhs {
+            ArmHalfwordDataTransferRhs::Imm(val) => val,
+            ArmHalfwordDataTransferRhs::Reg(rm) => self.state.gpr[rm as usize],
+        };
+
+        if !up {
+            op2 *= u32::MAX;
+        }
+
+        if pre {
+            addr += op2;
+        }
+
+        self.state.gpr[15] += 4;
+
+        match (half, sign) {
+            (true, true) => todo!(),
+            (true, _) => {
+                if load {
+                    self.state.gpr[rd as usize] = self.memory.read_half(addr) as u32;
+                } else {
+                    self.memory
+                        .write_half(addr, self.state.gpr[rd as usize] as u16);
+                }
+            }
+            (_, true) => todo!(),
+            _ => {}
+        }
+
+        if do_writeback {
+            if !pre {
+                self.state.gpr[rn as usize] += op2;
+            } else {
+                self.state.gpr[rn as usize] = addr;
+            }
+        }
     }
 
     pub(in crate::arm) fn arm_status_load(&mut self, _: u32) {
@@ -215,7 +268,8 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             if opcode.byte {
                 todo!() // write byte
             } else {
-                self.memory.write_word(addr, self.state.gpr[opcode.rd as usize])
+                self.memory
+                    .write_word(addr, self.state.gpr[opcode.rd as usize])
             }
         }
 
