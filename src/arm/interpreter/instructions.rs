@@ -1,4 +1,4 @@
-use std::mem::{size_of, transmute};
+use std::mem::transmute;
 
 use crate::arm::state::{Condition, GPR};
 
@@ -221,7 +221,7 @@ impl ArmBranchLink {
 }
 
 pub struct ArmBlockDataTransfer {
-    pub rlist: u16,
+    pub rlist: u32,
     pub r15_in_rlist: bool,
     pub load: bool,
     pub writeback: bool,
@@ -537,5 +537,421 @@ impl ArmSignedMultiplyAccumulateLong {
             x: bit::<5>(instruction),
             y: bit::<6>(instruction),
         }
+    }
+}
+
+pub struct ThumbAddSubtract {
+    pub rd: GPR,
+    pub rs: GPR,
+    pub rn: GPR,
+    pub sub: bool,
+    pub imm: bool,
+}
+
+impl ThumbAddSubtract {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rd: get_field::<0, 3>(instruction).into(),
+            rs: get_field::<3, 3>(instruction).into(),
+            rn: get_field::<6, 3>(instruction).into(),
+            sub: bit::<9>(instruction),
+            imm: bit::<10>(instruction),
+        }
+    }
+}
+
+pub struct ThumbShiftImmediate {
+    pub rd: GPR,
+    pub rs: GPR,
+    pub amount: u32,
+    pub shift_type: ShiftType,
+}
+
+impl ThumbShiftImmediate {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rd: get_field::<0, 3>(instruction).into(),
+            rs: get_field::<3, 3>(instruction).into(),
+            amount: get_field::<6, 5>(instruction),
+            shift_type: get_field::<11, 2>(instruction).into(),
+        }
+    }
+}
+
+pub enum ThumbALUImmediateOp {
+    MOV = 0,
+    CMP = 1,
+    ADD = 2,
+    SUB = 3,
+}
+
+struct ThumbALUImmediate {
+    pub imm: u8,
+    pub rd: GPR,
+    pub opcode: ThumbALUImmediateOp,
+}
+
+impl ThumbALUImmediate {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            imm: get_field::<0, 8>(instruction) as _,
+            rd: get_field::<8, 3>(instruction).into(),
+            opcode: get_field::<11, 2>(instruction).into(),
+        }
+    }
+}
+
+pub enum ThumbOpcode {
+    AND = 0,
+    EOR = 1,
+    LSL = 2,
+    LSR = 3,
+    ASR = 4,
+    ADC = 5,
+    SBC = 6,
+    ROR = 7,
+    TST = 8,
+    NEG = 9,
+    CMP = 10,
+    CMN = 11,
+    ORR = 12,
+    MUL = 13,
+    BIC = 14,
+    MVN = 15,
+}
+
+pub struct ThumbDataProcessingRegister {
+    pub rd: GPR,
+    pub rs: GPR,
+    pub opcode: ThumbOpcode,
+}
+
+impl ThumbDataProcessingRegister {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rd: get_field::<0, 3>(instruction).into(),
+            rs: get_field::<3, 3>(instruction).into(),
+            opcode: get_field::<6, 4>(instruction).into(),
+        }
+    }
+}
+
+pub enum SpecialOpcode {
+    ADD = 0,
+    CMP = 1,
+    MOV = 2,
+}
+
+pub struct ThumbSpecialDataProcessing {
+    pub rd: GPR,
+    pub rs: GPR,
+    pub opcode: SpecialOpcode,
+}
+
+impl ThumbSpecialDataProcessing {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rd: (((bit::<7>(instruction) as u32) << 3) | (get_field::<0, 3>(instruction))).into(),
+            rs: get_field::<3, 4>(instruction).into(),
+            opcode: get_field::<8, 2>(instruction).into(),
+        }
+    }
+}
+
+pub struct ThumbAdjustStackPointer {
+    pub imm: u32,
+    pub sub: bool,
+}
+
+impl ThumbAdjustStackPointer {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            imm: get_field::<0, 7>(instruction) << 2,
+            sub: bit::<7>(instruction),
+        }
+    }
+}
+
+pub struct ThumbAddSPPC {
+    pub imm: u32,
+    pub rd: GPR,
+    pub sp: bool,
+}
+
+impl ThumbAddSPPC {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            imm: get_field::<0, 8>(instruction) << 2,
+            rd: get_field::<8, 3>(instruction).into(),
+            sp: bit::<11>(instruction),
+        }
+    }
+}
+
+pub struct ThumbBranchExchange {
+    pub rm: GPR,
+}
+
+impl ThumbBranchExchange {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<3, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ThumbBranchLinkExchange {
+    pub rm: GPR,
+}
+
+impl ThumbBranchLinkExchange {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<3, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ThumbBranchLinkSetup {
+    pub imm: u32,
+}
+
+impl ThumbBranchLinkSetup {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            imm: sign_extend::<11>(get_field::<0, 11>(instruction)) << 12,
+        }
+    }
+}
+
+pub struct ThumbBranchLinkOffset {
+    pub offset: u32,
+}
+
+impl ThumbBranchLinkOffset {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            offset: get_field::<0, 11>(instruction) << 1,
+        }
+    }
+}
+
+pub struct ThumbBranchLinkExchangeOffset {
+    pub offset: u32,
+}
+
+impl ThumbBranchLinkExchangeOffset {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            offset: get_field::<0, 11>(instruction) << 1,
+        }
+    }
+}
+
+pub struct ThumbBranch {
+    pub offset: u32,
+}
+
+impl ThumbBranch {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            offset: sign_extend::<11>(get_field::<0, 11>(instruction)) << 1,
+        }
+    }
+}
+
+pub struct ThumbBranchConditional {
+    // static ThumbBranchConditional decode(u32 instruction) {
+    // ThumbBranchConditional opcode;
+    // opcode.condition = static_cast<Condition>(get_field::<8, 4>(instruction));
+    // opcode.offset = static_cast<u32>(common::sign_extend<s32, 8>(get_field::<0, 8>(instruction))) << 1;
+    // return opcode;
+    // }
+    pub condition: Condition,
+    pub offset: u32,
+}
+
+impl ThumbBranchConditional {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub struct ThumbLoadPC {
+    // static ThumbLoadPC decode(u32 instruction) {
+    // ThumbLoadPC opcode;
+    // opcode.imm = get_field::<0, 8>(instruction) << 2;
+    // opcode.rd = static_cast<GPR>(get_field::<8, 3>(instruction));
+    // return opcode;
+    // }
+    pub imm: u32,
+    pub rd: GPR,
+}
+
+impl ThumbLoadPC {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub enum LoadStoreRegisterOpcode {
+    STR = 0,
+    STRB = 1,
+    LDR = 2,
+    LDRB = 3,
+}
+
+pub struct ThumbLoadStoreRegisterOffset {
+    // static ThumbLoadStoreRegisterOffset decode(u32 instruction) {
+    // ThumbLoadStoreRegisterOffset opcode;
+    // opcode.rd = static_cast<GPR>(get_field::<0, 3>(instruction));
+    // opcode.rn = static_cast<GPR>(get_field::<3, 3>(instruction));
+    // opcode.rm = static_cast<GPR>(get_field::<6, 3>(instruction));
+    // opcode.opcode = static_cast<Opcode>(get_field::<10, 2>(instruction));
+    // return opcode;
+    // }
+    pub rd: GPR,
+    pub rn: GPR,
+    pub rm: GPR,
+    pub opcode: LoadStoreRegisterOpcode,
+}
+
+impl ThumbLoadStoreRegisterOffset {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub enum LoadStoreSignedOpcode {
+    STRH = 0,
+    LDRSB = 1,
+    LDRH = 2,
+    LDRSH = 3,
+}
+
+pub struct ThumbLoadStoreSigned {
+    // static ThumbLoadStoreSigned decode(u32 instruction) {
+    // ThumbLoadStoreSigned opcode;
+    // opcode.rd = static_cast<GPR>(get_field::<0, 3>(instruction));
+    // opcode.rn = static_cast<GPR>(get_field::<3, 3>(instruction));
+    // opcode.rm = static_cast<GPR>(get_field::<6, 3>(instruction));
+    // opcode.opcode = static_cast<Opcode>(get_field::<10, 2>(instruction));
+    // return opcode;
+    // }
+    pub rd: GPR,
+    pub rn: GPR,
+    pub rm: GPR,
+    pub opcode: LoadStoreSignedOpcode,
+}
+
+impl ThumbLoadStoreSigned {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub enum LoadStoreOpcode {
+    STR = 0,
+    LDR = 1,
+    STRB = 2,
+    LDRB = 3,
+}
+
+pub struct ThumbLoadStoreImmediate {
+    // static ThumbLoadStoreImmediate decode(u32 instruction) {
+    // ThumbLoadStoreImmediate opcode;
+    // opcode.rd = static_cast<GPR>(get_field::<0, 3>(instruction));
+    // opcode.rn = static_cast<GPR>(get_field::<3, 3>(instruction));
+    // opcode.imm = get_field::<6, 5>(instruction);
+    // opcode.opcode = static_cast<Opcode>(get_field::<11, 2>(instruction));
+    // return opcode;
+    // }
+    pub rd: GPR,
+    pub rn: GPR,
+    pub imm: u32,
+    pub opcode: LoadStoreOpcode,
+}
+
+impl ThumbLoadStoreImmediate {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub struct ThumbPushPop {
+    // static ThumbPushPop decode(u32 instruction) {
+    // ThumbPushPop opcode;
+    // opcode.rlist = get_field::<0, 8>(instruction);
+    // opcode.pclr = bit::<8>(instruction);
+    // opcode.pop = bit::<11>(instruction);
+    // return opcode;
+    // }
+    pub rlist: u8,
+    pub pclr: bool,
+    pub pop: bool,
+}
+
+impl ThumbPushPop {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub struct ThumbLoadStoreSPRelative {
+    // static ThumbLoadStoreSPRelative decode(u32 instruction) {
+    // ThumbLoadStoreSPRelative opcode;
+    // opcode.imm = get_field::<0, 8>(instruction);
+    // opcode.rd = static_cast<GPR>(get_field::<8, 3>(instruction));
+    // opcode.load = bit::<11>(instruction);
+    // return opcode;
+    // }
+    pub imm: u32,
+    pub rd: GPR,
+    pub load: bool,
+}
+
+impl ThumbLoadStoreSPRelative {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub struct ThumbLoadStoreHalfword {
+    // static ThumbLoadStoreHalfword decode(u32 instruction) {
+    // ThumbLoadStoreHalfword opcode;
+    // opcode.rd = static_cast < GPR> (get_field:: < 0, 3 >(instruction));
+    // opcode.rn = static_cast< GPR > (get_field:: < 3, 3 > (instruction));
+    // opcode.imm = get_field:: < 6, 5 > (instruction);
+    // opcode.load = bit::< 11 > (instruction);
+    // return opcode;
+    // }
+    pub rd: GPR,
+    pub rn: GPR,
+    pub imm: u32,
+    pub load: bool,
+}
+
+impl ThumbLoadStoreHalfword {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
+    }
+}
+
+pub struct ThumbLoadStoreMultiple {
+    // static ThumbLoadStoreMultiple decode(u32 instruction) {
+    // ThumbLoadStoreMultiple opcode;
+    // opcode.rlist = get_field::<0, 8>(instruction);
+    // opcode.rn = static_cast<GPR>(get_field::<8, 3>(instruction));
+    // opcode.load = bit::<11>(instruction);
+    // return opcode;
+    // }
+    pub rlist: u8,
+    pub rn: GPR,
+    pub load: bool,
+}
+
+impl ThumbLoadStoreMultiple {
+    pub fn decode(instruction: u32) -> Self {
+        todo!()
     }
 }
