@@ -11,8 +11,8 @@ const fn get_field<const START: usize, const SIZE: usize>(val: u32) -> u32 {
 }
 
 pub const fn sign_extend<const N: usize>(val: u32) -> u32 {
-    let shift = (8 * size_of::<u32>() - N) as u32;
-    val.wrapping_shl(shift).wrapping_shr(shift)
+    let shift = (32 - N) as u32;
+    (val as i32).wrapping_shl(shift).wrapping_shr(shift) as u32
 }
 
 #[repr(u8)]
@@ -421,6 +421,121 @@ impl ArmSingleDataSwap {
             rd: get_field::<12, 4>(instruction).into(),
             rn: get_field::<16, 4>(instruction).into(),
             byte: bit::<22>(instruction),
+        }
+    }
+}
+
+pub struct ArmCountLeadingZeros {
+    pub rm: GPR,
+    pub rd: GPR,
+}
+
+impl ArmCountLeadingZeros {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rd: get_field::<12, 4>(instruction).into(),
+        }
+    }
+}
+
+pub struct ArmSaturatingAddSubtract {
+    pub rm: GPR,
+    pub rd: GPR,
+    pub rn: GPR,
+    pub double_rhs: bool,
+    pub sub: bool,
+}
+
+impl ArmSaturatingAddSubtract {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rd: get_field::<12, 4>(instruction).into(),
+            rn: get_field::<16, 4>(instruction).into(),
+            double_rhs: bit::<21>(instruction),
+            sub: bit::<22>(instruction),
+        }
+    }
+}
+
+pub struct ArmSignedMultiply {
+    pub rm: GPR,
+    pub rs: GPR,
+    pub rn: GPR,
+    pub rd: GPR,
+    pub accumulate: bool,
+    pub x: bool,
+    pub y: bool,
+}
+
+impl ArmSignedMultiply {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rs: get_field::<8, 4>(instruction).into(),
+            rn: get_field::<12, 4>(instruction).into(),
+            rd: get_field::<16, 4>(instruction).into(),
+            accumulate: get_field::<21, 3>(instruction) == 0,
+            x: bit::<5>(instruction),
+            y: bit::<6>(instruction),
+        }
+    }
+}
+
+pub struct ArmBranchLinkExchange {
+    pub offset: u32,
+}
+
+impl ArmBranchLinkExchange {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            offset: (sign_extend::<24>(get_field::<0, 24>(instruction)) << 2)
+                | ((bit::<24>(instruction) as u32) << 1),
+        }
+    }
+}
+
+pub struct ArmSignedMultiplyWord {
+    pub rm: GPR,
+    pub rs: GPR,
+    pub rn: GPR,
+    pub rd: GPR,
+    pub accumulate: bool,
+    pub y: bool,
+}
+
+impl ArmSignedMultiplyWord {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rs: get_field::<8, 4>(instruction).into(),
+            rn: get_field::<12, 4>(instruction).into(),
+            rd: get_field::<16, 4>(instruction).into(),
+            accumulate: !bit::<5>(instruction),
+            y: bit::<6>(instruction),
+        }
+    }
+}
+
+pub struct ArmSignedMultiplyAccumulateLong {
+    pub rm: GPR,
+    pub rs: GPR,
+    pub rn: GPR,
+    pub rd: GPR,
+    pub x: bool,
+    pub y: bool,
+}
+
+impl ArmSignedMultiplyAccumulateLong {
+    pub fn decode(instruction: u32) -> Self {
+        Self {
+            rm: get_field::<0, 4>(instruction).into(),
+            rs: get_field::<8, 4>(instruction).into(),
+            rn: get_field::<12, 4>(instruction).into(),
+            rd: get_field::<16, 4>(instruction).into(),
+            x: bit::<5>(instruction),
+            y: bit::<6>(instruction),
         }
     }
 }

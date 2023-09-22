@@ -2,9 +2,10 @@ use log::{error, warn};
 
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
+use crate::arm::interpreter::alu::{add_overflow, sub_overflow};
 use crate::arm::interpreter::instructions::*;
 use crate::arm::memory::Memory;
-use crate::arm::state::{Mode, GPR};
+use crate::arm::state::{Bank, Mode, GPR};
 
 #[allow(dead_code)]
 impl<M: Memory, C: Coprocessor> Cpu<M, C> {
@@ -43,15 +44,42 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     fn arm_branch_link_exchange(&mut self, instruction: u32) {
-        todo!()
+        if self.arch == Arch::ARMv4 {
+            return warn!("Interpreter: arm_branch_link_exchange executed by arm7");
+        }
+
+        let ArmBranchLinkExchange { offset } = ArmBranchLinkExchange::decode(instruction);
+        self.state.gpr[14] = self.state.gpr[15] - 4;
+        self.state.cpsr.set_thumb(true);
+        self.state.gpr[15] += offset;
+        self.thumb_flush_pipeline();
     }
 
-    pub(in crate::arm) fn arm_count_leading_zeroes(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_count_leading_zeroes(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return self.undefined_exception();
+        }
+
+        let ArmCountLeadingZeros { rm, rd } = ArmCountLeadingZeros::decode(instruction);
+        self.state.gpr[rd as usize] = self.state.gpr[rm as usize].leading_zeros();
+        self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_branch_link_exchange_register(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_branch_link_exchange_register(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return warn!("Interpreter: arm_branch_link_exchange_register executed by arm7");
+        }
+
+        let ArmBranchExchange { rm } = ArmBranchExchange::decode(instruction);
+        self.state.gpr[14] = self.state.gpr[15] - 4;
+        if self.state.gpr[rm as usize] & 0x1 != 0 {
+            self.state.cpsr.set_thumb(true);
+            self.state.gpr[15] = self.state.gpr[rm as usize] & !0x1;
+            self.thumb_flush_pipeline();
+        } else {
+            self.state.gpr[15] = self.state.gpr[rm as usize] & !0x3;
+            self.arm_flush_pipeline();
+        }
     }
 
     pub(in crate::arm) fn arm_single_data_swap(&mut self, instruction: u32) {
@@ -61,7 +89,8 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
 
         if byte {
             data = self.memory.read_byte(addr) as u32;
-            self.memory.write_byte(addr, self.state.gpr[rm as usize] as u8);
+            self.memory
+                .write_byte(addr, self.state.gpr[rm as usize] as u8);
         } else {
             data = self.read_word_rotate(addr);
             self.memory.write_word(addr, self.state.gpr[rm as usize]);
@@ -94,8 +123,51 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_saturating_add_subtract(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_saturating_add_subtract(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return self.undefined_exception();
+        }
+
+        let ArmSaturatingAddSubtract {
+            rm,
+            rd,
+            rn,
+            double_rhs,
+            sub,
+        } = ArmSaturatingAddSubtract::decode(instruction);
+        let lhs = self.state.gpr[rm as usize];
+        let mut rhs = self.state.gpr[rn as usize];
+
+        if rd == GPR::PC {
+            todo!("handle rd == 15")
+        }
+
+        if double_rhs {
+            let mut result = rhs + rhs;
+            if (rhs ^ result) >> 31 != 0 {
+                self.state.cpsr.set_q(true);
+                result = 0x80000000 - (result >> 31);
+            }
+            rhs = result;
+        }
+
+        self.state.gpr[rd as usize] = if sub {
+            let mut result = lhs - rhs;
+            if sub_overflow(lhs, rhs, result) {
+                self.state.cpsr.set_q(true);
+                result = 0x80000000 - (result >> 31);
+            }
+            result
+        } else {
+            let mut result = lhs + rhs;
+            if add_overflow(lhs, rhs, result) {
+                self.state.cpsr.set_q(true);
+                result = 0x80000000 - (result >> 31);
+            }
+            result
+        };
+
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_multiply_long(&mut self, instruction: u32) {
@@ -110,7 +182,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         } = ArmMultiplyLong::decode(instruction);
 
         const fn sign_extend(x: u32) -> i64 {
-            (x as u64).wrapping_shl(32).wrapping_shr(32) as i64
+            (x as i64).wrapping_shl(32).wrapping_shr(32)
         }
 
         let mut result = if sign {
@@ -169,7 +241,20 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         self.state.gpr[15] += 4;
 
         match (half, sign) {
-            (true, true) => todo!(),
+            (true, true) => {
+                if load {
+                    self.state.gpr[rd as usize] =
+                        sign_extend::<16>(self.memory.read_half(addr) as _);
+                } else if self.arch == Arch::ARMv5 {
+                    if rd as usize & 1 != 0 {
+                        error!("Interpreter: undefined strd exception")
+                    }
+
+                    self.memory.write_word(addr, self.state.gpr[rd as usize]);
+                    self.memory
+                        .write_word(addr + 4, self.state.gpr[rd as usize + 1]);
+                }
+            }
             (true, _) => {
                 if load {
                     self.state.gpr[rd as usize] = self.memory.read_half(addr) as u32;
@@ -180,7 +265,8 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             }
             (_, true) => {
                 if load {
-                    self.state.gpr[rd as usize] = sign_extend::<8>(self.memory.read_byte(addr) as u32);
+                    self.state.gpr[rd as usize] =
+                        sign_extend::<8>(self.memory.read_byte(addr) as u32);
                 } else if self.arch == Arch::ARMv5 {
                     if rd as usize & 0x1 != 0 {
                         error!("Interpreter: undefined ldrd exception")
@@ -189,7 +275,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                     self.state.gpr[rd as usize] = self.memory.read_word(addr);
                     self.state.gpr[rd as usize + 1] = self.memory.read_word(addr + 4);
 
-                    do_writeback = rn as usize == (rd as usize + 1);
+                    do_writeback = rn as usize != (rd as usize + 1);
 
                     if rd == GPR::LR {
                         self.arm_flush_pipeline()
@@ -202,7 +288,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         if do_writeback {
             if !pre {
                 self.state.gpr[rn as usize] += op2;
-            } else {
+            } else if writeback {
                 self.state.gpr[rn as usize] = addr;
             }
         }
@@ -249,7 +335,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             let spsr = self.state.spsr_mut();
             spsr.0 = (spsr.0 & !mask) | (val & mask);
         } else {
-            if mask & 0xff != 0{
+            if mask & 0xff != 0 {
                 self.switch_mode((val & 0x1f).into())
             }
             self.state.cpsr.0 = (self.state.cpsr.0 & !mask) | (val & mask)
@@ -428,9 +514,12 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
 
         if load && rd == GPR::PC {
             if self.arch == Arch::ARMv5 && self.state.gpr[15] & 1 != 0 {
-                todo!()
+                self.state.cpsr.set_thumb(true);
+                self.state.gpr[15] &= !1;
+                self.thumb_flush_pipeline();
             } else {
-                todo!()
+                self.state.gpr[15] &= !3;
+                self.arm_flush_pipeline();
             }
         }
     }
@@ -569,19 +658,124 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
     }
 
     pub(in crate::arm) fn arm_software_interrupt(&mut self, _: u32) {
-        todo!()
+        *self.state.spsr_at(Bank::SVC) = self.state.cpsr;
+        self.switch_mode(Mode::Supervisor);
+
+        self.state.cpsr.set_i(true);
+        self.state.gpr[14] = self.state.gpr[15] - 4;
+        self.state.gpr[15] = self.coprocessor.get_exception_base() + 0x08;
+        self.arm_flush_pipeline();
     }
 
-    pub(in crate::arm) fn arm_signed_multiply_accumulate_long(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_signed_multiply_accumulate_long(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return;
+        }
+
+        let ArmSignedMultiplyAccumulateLong {
+            rm,
+            rs,
+            rn,
+            rd,
+            x,
+            y,
+        } = ArmSignedMultiplyAccumulateLong::decode(instruction);
+        let rdhilo = (((self.state.gpr[rd as usize] as u64) << 32)
+            | (self.state.gpr[rn as usize] as u64)) as i64;
+
+        let lhs = if x {
+            (self.state.gpr[rm as usize] >> 16) as i16 as i64
+        } else {
+            (self.state.gpr[rm as usize]) as i16 as i64
+        };
+
+        let rhs = if y {
+            (self.state.gpr[rs as usize] >> 16) as i16 as i64
+        } else {
+            (self.state.gpr[rs as usize]) as i16 as i64
+        };
+
+        let result = (lhs * rhs) + rdhilo;
+        self.state.gpr[rn as usize] = (result & 0xffffffff) as u32;
+        self.state.gpr[rd as usize] = (result >> 32) as u32;
+        self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_signed_multiply_word(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_signed_multiply_word(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return;
+        }
+
+        let ArmSignedMultiplyWord {
+            rm,
+            rs,
+            rn,
+            rd,
+            accumulate,
+            y,
+        } = ArmSignedMultiplyWord::decode(instruction);
+        let result = if y {
+            (((self.state.gpr[rm as usize] as i32) * ((self.state.gpr[rs as usize] >> 16) as i32))
+                >> 16) as u32
+        } else {
+            (((self.state.gpr[rm as usize] as i32) * (self.state.gpr[rs as usize] as i16 as i32))
+                >> 16) as u32
+        };
+
+        if accumulate {
+            let operand = self.state.gpr[rn as usize];
+            self.state.gpr[rd as usize] = result + operand;
+
+            if add_overflow(result, operand, self.state.gpr[rd as usize]) {
+                self.state.cpsr.set_q(true)
+            }
+        } else {
+            self.state.gpr[rd as usize] = result;
+        }
+
+        self.state.gpr[15] += 4;
     }
 
-    pub(in crate::arm) fn arm_signed_multiply(&mut self, _: u32) {
-        todo!()
+    pub(in crate::arm) fn arm_signed_multiply(&mut self, instruction: u32) {
+        if self.arch == Arch::ARMv4 {
+            return;
+        }
+
+        let ArmSignedMultiply {
+            rm,
+            rs,
+            rn,
+            rd,
+            accumulate,
+            x,
+            y,
+        } = ArmSignedMultiply::decode(instruction);
+
+        let lhs = if x {
+            (self.state.gpr[rm as usize] >> 16) as i16 as u32
+        } else {
+            self.state.gpr[rm as usize] as i16 as u32
+        };
+        let rhs = if y {
+            (self.state.gpr[rs as usize] >> 16) as i16 as u32
+        } else {
+            self.state.gpr[rs as usize] as i16 as u32
+        };
+
+        let result = lhs * rhs;
+
+        if accumulate {
+            let operand = self.state.gpr[rn as usize];
+            self.state.gpr[rd as usize] = result + operand;
+
+            if add_overflow(result, operand, self.state.gpr[rd as usize]) {
+                self.state.cpsr.set_q(true);
+            }
+        } else {
+            self.state.gpr[rd as usize] = result;
+        }
+
+        self.state.gpr[15] += 4;
     }
 
     pub(in crate::arm) fn arm_breakpoint(&mut self, _: u32) {

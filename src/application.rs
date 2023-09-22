@@ -35,33 +35,25 @@ impl Application {
 
     pub fn start(&mut self) {
         self.boot_game("roms/armwrestler.nds");
-        // self.window.limit_update_rate(None);
 
         while self.window.is_open() {
-            // if start.elapsed() >= Duration::from_secs(5) {
-            //     self.system.step();
-            //     println!("{:08x}", self.system.arm9.cpu.instruction);
-            // } else {
-            //     self.system.run_frame();
-            // }
             let start = Instant::now();
             self.handle_input();
             self.system.run_frame();
+
+            self.window.set_title(&format!(
+                "fps: {:.01?}",
+                1.0 / start.elapsed().as_secs_f32()
+            ));
 
             let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
             let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
             self.framebuffer[..256 * 192].copy_from_slice(top);
             self.framebuffer[256 * 192..].copy_from_slice(bot);
 
-            // dbg!(top.iter().collect::<HashSet<_>>());
-            // dbg!(bot.iter().collect::<HashSet<_>>());
-
-            // dbg!(self.framebuffer.iter().filter(|p| **dbg!(p) != 0).count());
             self.window
                 .update_with_buffer(&self.framebuffer, 256, 192 * 2)
                 .unwrap();
-
-            // trace!("frame took: {:?}", start.elapsed());
         }
     }
 

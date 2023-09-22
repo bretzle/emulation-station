@@ -292,10 +292,11 @@ mod arithmetic {
     }
 }
 
-fn add_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
+// todo: move into utility package
+pub const fn add_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
     ((!(lhs ^ rhs) & (rhs ^ result)) >> 31) != 0
 }
 
-fn sub_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
+pub const fn sub_overflow(lhs: u32, rhs: u32, result: u32) -> bool {
     (((lhs ^ rhs) & (lhs ^ result)) >> 31) != 0
 }

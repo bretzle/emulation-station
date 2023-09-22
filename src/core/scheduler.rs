@@ -1,3 +1,4 @@
+use log::trace;
 use std::rc::Rc;
 
 use crate::core::System;
@@ -52,10 +53,14 @@ impl Scheduler {
     }
 
     pub fn run(&mut self) {
-        while self.events.len() > 0 && self.events[0].time <= self.current_time {
-            (self.events[0].info.callback)(&mut self.system);
-            self.events.remove(0);
+        for event in &self.events {
+            if event.time <= self.current_time {
+                // trace!("running '{}' at {}", event.info.name, event.time);
+                (event.info.callback)(&mut self.system);
+            }
         }
+
+        self.events.retain(|e| e.time > self.current_time);
     }
 
     pub fn add_event(&mut self, delay: u64, info: &Rc<EventInfo>) {
@@ -69,7 +74,7 @@ impl Scheduler {
     }
 
     pub fn cancel_event(&mut self, info: &EventInfo) {
-        self.events.retain(|e| e.info.id != info.id)
+        self.events.retain(|e| e.info.id != info.id);
     }
 
     pub fn register_event(&mut self, name: &str, callback: fn(&mut System)) -> Rc<EventInfo> {
@@ -87,7 +92,10 @@ impl Scheduler {
     }
 
     pub fn get_event_time(&self) -> u64 {
-        self.events[0].time
+        if self.events.len() == 0 {
+            panic!()
+        }
+        self.events.get(0).map(|e| e.time).unwrap_or(u64::MAX)
     }
 
     // todo: replace with Vec::binary_search_by
