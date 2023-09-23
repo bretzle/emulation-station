@@ -1,7 +1,5 @@
-#![feature(pointer_is_aligned)]
-
 use log::LevelFilter;
-use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
+use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
 
 use crate::application::Application;
 
@@ -14,7 +12,7 @@ fn main() {
     color_eyre::install().unwrap();
     TermLogger::init(
         LevelFilter::Trace,
-        Config::default(),
+        ConfigBuilder::new().add_filter_ignore_str("wgpu").build(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
     )

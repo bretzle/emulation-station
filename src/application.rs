@@ -1,9 +1,12 @@
-use log::{debug, info, trace};
-use minifb::Key::P;
-use minifb::{Key, KeyRepeat, Scale, Window, WindowOptions};
-use std::collections::HashSet;
-use std::io::read_to_string;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+
+use log::error;
+use pixels::{Pixels, SurfaceTexture};
+use winit::dpi::PhysicalSize;
+use winit::event::{ElementState, Event, StartCause, VirtualKeyCode, WindowEvent};
+use winit::event_loop::EventLoop;
+use winit::platform::run_return::EventLoopExtRunReturn;
+use winit::window::{Window, WindowBuilder};
 
 use crate::core::config::BootMode;
 use crate::core::hardware::input::InputEvent;
@@ -14,78 +17,82 @@ use crate::util::Shared;
 pub struct Application {
     system: Shared<System>,
 
-    framebuffer: Vec<u32>,
+    event_loop: EventLoop<()>,
     window: Window,
+    pixels: Pixels,
 }
 
 impl Application {
     pub fn new() -> Self {
-        let opts = WindowOptions {
-            scale: Scale::X2,
-            ..Default::default()
+        let event_loop = EventLoop::new();
+        let window = WindowBuilder::new()
+            .with_inner_size(PhysicalSize::new(256, 192 * 2))
+            .with_resizable(false)
+            .with_decorations(false)
+            .build(&event_loop)
+            .unwrap();
+
+        let pixels = {
+            let window_size = window.inner_size();
+            let surface_texture =
+                SurfaceTexture::new(window_size.width, window_size.height, &window);
+            Pixels::new(256, 192 * 2, surface_texture).unwrap()
         };
-        let window = Window::new("Emulation Station", 256, 192 * 2, opts).unwrap();
 
         Self {
             system: System::new(),
-            framebuffer: vec![0; 256 * 192 * 2],
+            event_loop,
             window,
+            pixels,
         }
     }
 
     pub fn start(&mut self) {
         self.boot_game("roms/armwrestler.nds");
 
-        while self.window.is_open() {
-            let start = Instant::now();
-            self.handle_input();
-            self.system.run_frame();
+        self.event_loop.run_return(|event, _, flow| {
+            //
+            match event {
+                Event::NewEvents(StartCause::Init) => {
+                    self.window.set_decorations(true);
+                }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::Resized(new) => {
+                        self.pixels.resize_surface(new.width, new.height).unwrap();
+                        self.window.set_decorations(true);
+                    }
+                    WindowEvent::CloseRequested => return flow.set_exit(),
+                    WindowEvent::KeyboardInput { input, .. } => {
+                        let pressed = matches!(input.state, ElementState::Pressed);
+                        if let Some(key) = input.virtual_keycode {
+                            if let Some(event) = convert(key) {
+                                self.system.input.handle_input(event, pressed);
+                            }
+                        }
+                    }
+                    _ => {}
+                },
+                Event::RedrawRequested(_) => {
+                    let start = Instant::now();
+                    self.system.run_frame();
+                    self.window.set_title(&format!(
+                        "fps: {:.01?}",
+                        1.0 / start.elapsed().as_secs_f32()
+                    ));
+                    let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
+                    let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
 
-            self.window.set_title(&format!(
-                "fps: {:.01?}",
-                1.0 / start.elapsed().as_secs_f32()
-            ));
+                    self.pixels.frame_mut()[..256 * 192 * 4].copy_from_slice(top);
+                    self.pixels.frame_mut()[256 * 192 * 4..].copy_from_slice(bot);
 
-            let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
-            let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
-            self.framebuffer[..256 * 192].copy_from_slice(top);
-            self.framebuffer[256 * 192..].copy_from_slice(bot);
-
-            self.window
-                .update_with_buffer(&self.framebuffer, 256, 192 * 2)
-                .unwrap();
-        }
-    }
-
-    fn handle_input(&mut self) {
-        const fn convert(key: Key) -> Option<InputEvent> {
-            Some(match key {
-                Key::A => InputEvent::A,
-                Key::B => InputEvent::B,
-                Key::Tab => InputEvent::Select,
-                Key::Enter => InputEvent::Start,
-                Key::Right => InputEvent::Right,
-                Key::Left => InputEvent::Left,
-                Key::Up => InputEvent::Up,
-                Key::Down => InputEvent::Down,
-                Key::E => InputEvent::R,
-                Key::W => InputEvent::L,
-                _ => return None,
-            })
-        }
-        for key in self.window.get_keys_pressed(KeyRepeat::Yes) {
-            if let Some(event) = convert(key) {
-                debug!("pressing {key:?}");
-                self.system.input.handle_input(event, true)
+                    if let Err(err) = self.pixels.render() {
+                        error!("Application: {err:?}");
+                        return flow.set_exit();
+                    }
+                }
+                _ => {}
             }
-        }
-
-        for key in self.window.get_keys_released() {
-            if let Some(event) = convert(key) {
-                debug!("releasing {key:?}");
-                self.system.input.handle_input(event, false)
-            }
-        }
+        });
     }
 
     fn boot_game(&mut self, path: &str) {
@@ -93,4 +100,20 @@ impl Application {
         self.system.set_boot_mode(BootMode::Direct);
         self.system.reset();
     }
+}
+
+const fn convert(key: VirtualKeyCode) -> Option<InputEvent> {
+    Some(match key {
+        VirtualKeyCode::A => InputEvent::A,
+        VirtualKeyCode::B => InputEvent::B,
+        VirtualKeyCode::Tab => InputEvent::Select,
+        VirtualKeyCode::Return => InputEvent::Start,
+        VirtualKeyCode::Right => InputEvent::Right,
+        VirtualKeyCode::Left => InputEvent::Left,
+        VirtualKeyCode::Up => InputEvent::Up,
+        VirtualKeyCode::Down => InputEvent::Down,
+        VirtualKeyCode::E => InputEvent::R,
+        VirtualKeyCode::W => InputEvent::L,
+        _ => return None,
+    })
 }

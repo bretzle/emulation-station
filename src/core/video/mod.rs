@@ -131,7 +131,7 @@ impl VideoUnit {
         scheduler.add_event(1606, &self.scanline_start_event);
     }
 
-    pub fn fetch_framebuffer(&self, screen: Screen) -> &[u32] {
+    pub fn fetch_framebuffer(&self, screen: Screen) -> &[u8] {
         if self.powcnt1.display_swap() == matches!(screen, Screen::Top) {
             self.ppu_a.fetch_framebuffer()
         } else {

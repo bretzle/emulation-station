@@ -88,7 +88,7 @@ pub struct Ppu {
     mosaic_bg_vertical_counter: u16,
 
     framebuffer: Box<[u32; 256 * 192]>,
-    converted_framebuffer: Box<[u32; 256 * 192]>,
+    converted_framebuffer: Box<[u8; 256 * 192 * 4]>,
     bg_layers: [[u16; 256]; 4],
     obj_buffer: [Object; 256],
 
@@ -133,7 +133,7 @@ impl Ppu {
             bldalpha: (),
             mosaic_bg_vertical_counter: 0,
             framebuffer: Box::new([0; 256 * 192]),
-            converted_framebuffer: Box::new([0; 256 * 192]),
+            converted_framebuffer: Box::new([0; 256 * 192 * 4]),
             bg_layers: [[0; 256]; 4],
             obj_buffer: std::array::from_fn(|_| Object {
                 priority: 0,
@@ -157,11 +157,13 @@ impl Ppu {
 
     pub fn on_finish_frame(&mut self) {
         for i in 0..256 * 192 {
-            self.converted_framebuffer[i] = rgb666_to_rgb888(self.framebuffer[i])
+            let j = i * 4;
+            self.converted_framebuffer[j..j + 4]
+                .copy_from_slice(&rgb666_to_rgb888(self.framebuffer[i]));
         }
     }
 
-    pub fn fetch_framebuffer(&self) -> &[u32] {
+    pub fn fetch_framebuffer(&self) -> &[u8] {
         self.converted_framebuffer.as_slice()
     }
 
@@ -243,10 +245,12 @@ fn rgb555_to_rgb666(color: u32) -> u32 {
     (b << 12) | (g << 6) | r
 }
 
-fn rgb666_to_rgb888(colour: u32) -> u32 {
-    let r = ((colour & 0x3f) * 255) / 63;
-    let g = (((colour >> 6) & 0x3f) * 255) / 63;
-    let b = (((colour >> 12) & 0x3f) * 255) / 63;
+fn rgb666_to_rgb888(colour: u32) -> [u8; 4] {
+    let r = (((colour & 0x3f) * 255) / 63) as u8;
+    let g = ((((colour >> 6) & 0x3f) * 255) / 63) as u8;
+    let b = ((((colour >> 12) & 0x3f) * 255) / 63) as u8;
     // 0xff000000 | (r << 16) | (g << 8) | b
-    (r << 16) | (g << 8) | b
+    // [0xff, r, g, b]
+    // [b, g, r, 0xff]
+    [r, g, b, 0xff]
 }
