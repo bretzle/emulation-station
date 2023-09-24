@@ -1,5 +1,5 @@
 use crate::arm::cpu::Arch;
-use log::debug;
+use log::{debug, info};
 
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};

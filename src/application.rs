@@ -3,7 +3,7 @@ use std::time::Instant;
 use log::error;
 use pixels::{Pixels, SurfaceTexture};
 use winit::dpi::PhysicalSize;
-use winit::event::{ElementState, Event, StartCause, VirtualKeyCode, WindowEvent};
+use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
@@ -26,9 +26,8 @@ impl Application {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
-            .with_inner_size(PhysicalSize::new(256, 192 * 2))
+            .with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2))
             .with_resizable(false)
-            .with_decorations(false)
             .build(&event_loop)
             .unwrap();
 
@@ -51,15 +50,11 @@ impl Application {
         self.boot_game("roms/armwrestler.nds");
 
         self.event_loop.run_return(|event, _, flow| {
-            //
+            flow.set_poll();
             match event {
-                Event::NewEvents(StartCause::Init) => {
-                    self.window.set_decorations(true);
-                }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::Resized(new) => {
-                        self.pixels.resize_surface(new.width, new.height).unwrap();
-                        self.window.set_decorations(true);
+                        self.pixels.resize_surface(new.width, new.height).unwrap()
                     }
                     WindowEvent::CloseRequested => return flow.set_exit(),
                     WindowEvent::KeyboardInput { input, .. } => {
@@ -72,7 +67,7 @@ impl Application {
                     }
                     _ => {}
                 },
-                Event::RedrawRequested(_) => {
+                Event::MainEventsCleared => {
                     let start = Instant::now();
                     self.system.run_frame();
                     self.window.set_title(&format!(
