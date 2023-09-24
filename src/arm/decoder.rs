@@ -112,7 +112,7 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
     fn register_thumb(&mut self, pattern: &str, handler: Handler<M, C>) {
         let mask = mask::<16>(pattern);
         let value = value::<16>(pattern);
-        self.arm_list.push(Info {
+        self.thumb_list.push(Info {
             handler,
             mask,
             value,

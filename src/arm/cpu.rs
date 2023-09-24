@@ -46,8 +46,11 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
     }
 
-    pub(super) fn illegal_instruction(&mut self, _: u32) {
-        todo!()
+    pub(super) fn illegal_instruction(&mut self, instruction: u32) {
+        panic!(
+            "Interpreter: illegal instruction {instruction:08x} at pc = {:08x}",
+            self.state.gpr[15]
+        );
     }
 
     pub const fn is_halted(&self) -> bool {
@@ -68,12 +71,15 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             self.pipeline[0] = self.pipeline[1];
 
             if self.state.cpsr.thumb() {
-                todo!("cpu thumb")
+                self.state.gpr[15] &= !0x1;
+                self.pipeline[1] = self.code_read_half(self.state.gpr[15]) as u32;
+                let handler = self.decoder.decode_thumb(self.instruction);
+                (handler)(self, self.instruction)
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
 
-                if self.evaluate_cond(self.instruction >> 28) {
+                if self.evaluate_cond((self.instruction >> 28).into()) {
                     // log::info!("{:08x} regs: {:?}", self.instruction, self.state.gpr);
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
@@ -84,8 +90,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
     }
 
-    fn evaluate_cond(&self, bits: u32) -> bool {
-        let cond = Condition::from(bits);
+    pub fn evaluate_cond(&self, cond: Condition) -> bool {
         if cond == Condition::NV {
             return (self.arch == Arch::ARMv5) && (self.instruction & 0x0e000000) == 0xa000000;
         }

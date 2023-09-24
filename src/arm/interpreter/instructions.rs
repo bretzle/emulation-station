@@ -592,8 +592,8 @@ impl From<u32> for ThumbALUImmediateOp {
     }
 }
 
-struct ThumbALUImmediate {
-    pub imm: u8,
+pub struct ThumbALUImmediate {
+    pub imm: u32,
     pub rd: GPR,
     pub opcode: ThumbALUImmediateOp,
 }
@@ -601,7 +601,7 @@ struct ThumbALUImmediate {
 impl ThumbALUImmediate {
     pub fn decode(instruction: u32) -> Self {
         Self {
-            imm: get_field::<0, 8>(instruction) as _,
+            imm: get_field::<0, 8>(instruction),
             rd: get_field::<8, 3>(instruction).into(),
             opcode: get_field::<11, 2>(instruction).into(),
         }
