@@ -294,10 +294,14 @@ impl Memory for Arm9Memory {
 const MMIO_DISPCNT: u32 = mmio!(0x04000000);
 const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
 const MMIO_KEYINPUT: u32 = mmio!(0x04000130);
+const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
+const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
+const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
+const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
 // mmio write
 impl Arm9Memory {
@@ -328,6 +332,19 @@ impl Arm9Memory {
     fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
         match mmio!(addr) {
             MMIO_DISPCNT => self.system.video_unit.ppu_a.write_dispcnt(val, MASK),
+            MMIO_IPCSYNC => {
+                if MASK & 0xffff != 0 {
+                    self.system.ipc.write_ipcsync(Arch::ARMv5, val, MASK);
+                }
+            }
+            MMIO_IPCFIFOCNT => {
+                if MASK & 0xffff != 0 {
+                    self.system.ipc.write_ipcfifocnt(Arch::ARMv5, val as _, MASK as _);
+                }
+            }
+            MMIO_IPCFIFOSEND => {
+                self.system.ipc.write_ipcfifosend(Arch::ARMv5, val)
+            }
             MMIO_IME => self.system.arm9.get_irq().write_ime(val, MASK),
             MMIO_VRAMCNT => {
                 if MASK & 0xff != 0 {
@@ -361,7 +378,7 @@ impl Arm9Memory {
                 }
             }
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
-            _ => warn!(
+            _ => panic!(
                 "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),
@@ -414,7 +431,10 @@ impl Arm9Memory {
                     error!("ARM9Memory: handle keycnt read")
                 }
             }
-            _ => warn!(
+            MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv5),
+            MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv5) as u32,
+            MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv5),
+            _ => panic!(
                 "ARM9Memory: unmapped {}-bit read {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),

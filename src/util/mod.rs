@@ -1,5 +1,7 @@
 mod shared;
+mod ringbuf;
 
+pub use ringbuf::*;
 pub use shared::*;
 
 /// Create a C-style bitfield

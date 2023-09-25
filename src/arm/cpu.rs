@@ -1,3 +1,4 @@
+use std::ops::Not;
 use log::warn;
 
 use crate::arm::coprocessor::Coprocessor;
@@ -6,10 +7,21 @@ use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
 use crate::util::Shared;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum Arch {
     ARMv4,
     ARMv5,
+}
+
+impl Not for Arch {
+    type Output = Arch;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Arch::ARMv4 => Arch::ARMv5,
+            Arch::ARMv5 => Arch::ARMv4,
+        }
+    }
 }
 
 pub struct Cpu<M, C> {

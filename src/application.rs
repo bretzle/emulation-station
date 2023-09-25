@@ -47,7 +47,7 @@ impl Application {
     }
 
     pub fn start(&mut self) {
-        self.boot_game("roms/armwrestler.nds");
+        self.boot_game("roms/rockwrestler.nds");
 
         self.event_loop.run_return(|event, _, flow| {
             flow.set_poll();
