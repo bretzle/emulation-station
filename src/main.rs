@@ -1,5 +1,6 @@
+use std::fs::File;
 use log::LevelFilter;
-use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode};
+use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode, CombinedLogger, WriteLogger};
 
 use crate::application::Application;
 
@@ -10,16 +11,24 @@ mod util;
 
 fn main() {
     color_eyre::install().unwrap();
-    TermLogger::init(
-        LevelFilter::Trace,
-        ConfigBuilder::new()
-            .add_filter_ignore_str("wgpu")
-            .add_filter_ignore_str("naga")
-            .build(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .unwrap();
+    let config = ConfigBuilder::new()
+        .add_filter_ignore_str("wgpu")
+        .add_filter_ignore_str("naga")
+        .set_time_level(LevelFilter::Off)
+        .build();
+    CombinedLogger::init(vec! [
+        TermLogger::new(
+            LevelFilter::Trace,
+            config.clone(),
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
+        ),
+        WriteLogger::new(
+            LevelFilter::Trace,
+            config,
+            File::create("out.log").unwrap(),
+        )
+    ]).unwrap();
 
     let mut app = Application::new();
     app.start();
