@@ -1,10 +1,11 @@
 use std::ops::Not;
+
 use log::warn;
 
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::decoder::Decoder;
 use crate::arm::memory::Memory;
-use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
+use crate::arm::state::{Bank, Condition, GPR, Mode, State, StatusReg};
 use crate::util::Shared;
 
 #[derive(PartialEq, Copy, Clone)]
@@ -90,9 +91,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
-
                 if self.evaluate_cond((self.instruction >> 28).into()) {
-                    // log::info!("{:08x} regs: {:?}", self.instruction, self.state.gpr);
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                 } else {

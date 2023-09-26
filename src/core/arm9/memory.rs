@@ -1,3 +1,4 @@
+use std::io::read_to_string;
 use std::mem::size_of;
 use std::ptr::{addr_of, addr_of_mut};
 
@@ -298,6 +299,8 @@ const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
 const MMIO_IME: u32 = mmio!(0x04000208);
+const MMIO_IE: u32 = mmio!(0x04000210);
+const MMIO_IRF: u32 = mmio!(0x04000214);
 const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
@@ -346,6 +349,8 @@ impl Arm9Memory {
                 self.system.ipc.write_ipcfifosend(Arch::ARMv5, val)
             }
             MMIO_IME => self.system.arm9.get_irq().write_ime(val, MASK),
+            MMIO_IE => self.system.arm9.get_irq().write_ie(val, MASK),
+            MMIO_IRF => self.system.arm9.get_irq().write_irf(val, MASK),
             MMIO_VRAMCNT => {
                 if MASK & 0xff != 0 {
                     self.system
@@ -433,6 +438,9 @@ impl Arm9Memory {
             }
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv5),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv5) as u32,
+            MMIO_IME => return self.system.arm9.get_irq().read_ime() as u32,
+            MMIO_IE => return self.system.arm9.get_irq().read_ie(),
+            MMIO_IRF => return self.system.arm9.get_irq().read_irf(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv5),
             _ => panic!(
                 "ARM9Memory: unmapped {}-bit read {:08x}",

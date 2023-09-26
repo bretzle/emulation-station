@@ -39,6 +39,19 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             self.state.gpr[14] = self.state.gpr[15] - 4;
         }
 
+        #[cfg(debug_assertions)]
+        {
+            let old = self.state.gpr[15];
+            let fns: Vec<(u32, &str)> = vec![
+                // (0x20002a4, "_Z11draw_stringiiPKc"),
+                // (0x02000240, "_Z9draw_tileiii")
+            ];
+            for (addr, name) in fns {
+                if self.state.gpr[15] + offset == addr {
+                    log::debug!("{name}: {:x} {:08x?}", old-8, self.state.gpr);
+                }
+            }
+        }
         self.state.gpr[15] += offset;
         self.arm_flush_pipeline();
     }
@@ -363,7 +376,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         let mut new_base = 0;
 
         if rlist != 0 {
-            for i in (0..15).rev() {
+            for i in (0..16).rev() {
                 if rlist & (1 << i) != 0 {
                     first = i;
                     bytes += 4;

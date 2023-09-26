@@ -70,11 +70,13 @@ impl<M: Memory, C: Coprocessor> Irq<M, C> {
     }
 
     pub fn write_ie(&mut self, val: u32, mask: u32) {
-        todo!()
+        self.ie = (self.ie & !mask) | (val & mask);
+        self.update()
     }
 
     pub fn write_irf(&mut self, val: u32, mask: u32) {
-        todo!()
+        self.irf &= !(val & mask);
+        self.update()
     }
 
     fn update(&mut self) {

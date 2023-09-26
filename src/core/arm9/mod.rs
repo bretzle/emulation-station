@@ -1,7 +1,7 @@
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
-use crate::arm::state::{Mode, GPR};
+use crate::arm::state::{Mode, GPR, StatusReg};
 use crate::core::arm9::coprocessor::Arm9Coprocessor;
 use crate::core::arm9::memory::Arm9Memory;
 use crate::core::hardware::irq::Irq;
@@ -59,9 +59,7 @@ impl Arm9 {
         self.get_coprocessor().write(9, 1, 1, 0x00000020);
 
         // enter system mode
-        let mut cpsr = self.cpu.get_cpsr();
-        cpsr.set_mode(Mode::System);
-        self.cpu.set_cpsr(cpsr);
+        self.cpu.set_cpsr(StatusReg(0xdf));
 
         use GPR::*;
         let entrypoint = self.system.cartridge.get_arm9_entrypoint();
