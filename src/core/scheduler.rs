@@ -1,4 +1,3 @@
-use log::trace;
 use std::rc::Rc;
 
 use crate::core::System;

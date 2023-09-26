@@ -1,7 +1,7 @@
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::Cpu;
 use crate::arm::memory::Memory;
-use crate::core::arm9::Arm9;
+
 use crate::util::Shared;
 
 pub enum IrqSource {
@@ -50,7 +50,7 @@ impl<M: Memory, C: Coprocessor> Irq<M, C> {
         self.irf = 0;
     }
 
-    pub fn raise(&mut self, source: IrqSource) {
+    pub fn raise(&mut self, _source: IrqSource) {
         todo!()
     }
 
@@ -64,7 +64,7 @@ impl<M: Memory, C: Coprocessor> Irq<M, C> {
         self.irf
     }
 
-    pub fn write_ime(&mut self, val: u32, mut mask: u32) {
+    pub fn write_ime(&mut self, val: u32, _mask: u32) {
         self.ime = val & 1 != 0;
         self.update();
     }

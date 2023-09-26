@@ -1,7 +1,7 @@
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
-use crate::arm::state::{Mode, GPR, StatusReg};
+use crate::arm::state::{Mode, StatusReg, GPR};
 use crate::core::arm9::coprocessor::Arm9Coprocessor;
 use crate::core::arm9::memory::Arm9Memory;
 use crate::core::hardware::irq::Irq;

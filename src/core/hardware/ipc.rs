@@ -79,8 +79,10 @@ impl Ipc {
 
                     if self.ipcfifocnt[rx].send_fifo_empty_irq() {
                         match arch {
-                            Arch::ARMv4 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
-                            Arch::ARMv5 => todo!()
+                            Arch::ARMv4 => {
+                                self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty)
+                            }
+                            Arch::ARMv5 => todo!(),
                         }
                     }
                 } else if self.fifo[rx].len() == 15 {
@@ -95,7 +97,7 @@ impl Ipc {
         self.ipcfiforecv[tx]
     }
 
-    pub fn write_ipcsync(&mut self,  arch: Arch, val: u32, mut mask: u32) {
+    pub fn write_ipcsync(&mut self, arch: Arch, val: u32, mut mask: u32) {
         let tx = arch as usize;
         let rx = !arch as usize;
 
@@ -106,11 +108,11 @@ impl Ipc {
         if self.ipcsync[tx].send_irq() && self.ipcsync[rx].enable_irq() {
             match arch {
                 Arch::ARMv4 => self.system.arm9.get_irq().raise(IrqSource::IPCSync),
-                Arch::ARMv5 => todo!()
+                Arch::ARMv5 => todo!(),
             }
         }
     }
-    pub fn write_ipcfifocnt(&mut self,  arch: Arch, val: u16, mut mask: u16) {
+    pub fn write_ipcfifocnt(&mut self, arch: Arch, val: u16, mut mask: u16) {
         let tx = arch as usize;
         let rx = !arch as usize;
         let send_fifo_empty_irq_old = self.ipcfifocnt[tx].send_fifo_empty_irq();
@@ -134,17 +136,27 @@ impl Ipc {
             }
         }
 
-        if !send_fifo_empty_irq_old && self.ipcfifocnt[tx].send_fifo_empty_irq() && self.ipcfifocnt[tx].send_fifo_empty() {
+        if !send_fifo_empty_irq_old
+            && self.ipcfifocnt[tx].send_fifo_empty_irq()
+            && self.ipcfifocnt[tx].send_fifo_empty()
+        {
             match arch {
                 Arch::ARMv4 => todo!(),
                 Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
             }
         }
 
-        if !receive_fifo_empty_irq_old && self.ipcfifocnt[tx].receive_fifo_empty_irq() && self.ipcfifocnt[tx].receive_fifo_empty() {
+        if !receive_fifo_empty_irq_old
+            && self.ipcfifocnt[tx].receive_fifo_empty_irq()
+            && self.ipcfifocnt[tx].receive_fifo_empty()
+        {
             match arch {
                 Arch::ARMv4 => todo!(),
-                Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCReceiveNonEmpty),
+                Arch::ARMv5 => self
+                    .system
+                    .arm9
+                    .get_irq()
+                    .raise(IrqSource::IPCReceiveNonEmpty),
             }
         }
 
@@ -152,7 +164,7 @@ impl Ipc {
             self.ipcfifocnt[tx].set_error(false);
         }
     }
-    pub fn write_ipcfifosend(&mut self,  arch: Arch, val: u32) {
+    pub fn write_ipcfifosend(&mut self, arch: Arch, val: u32) {
         let tx = arch as usize;
         let rx = !arch as usize;
 
@@ -166,7 +178,11 @@ impl Ipc {
 
                     if self.ipcfifocnt[rx].receive_fifo_empty_irq() {
                         match arch {
-                            Arch::ARMv4 => self.system.arm9.get_irq().raise(IrqSource::IPCReceiveNonEmpty),
+                            Arch::ARMv4 => self
+                                .system
+                                .arm9
+                                .get_irq()
+                                .raise(IrqSource::IPCReceiveNonEmpty),
                             Arch::ARMv5 => todo!(),
                         }
                     }

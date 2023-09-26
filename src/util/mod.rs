@@ -1,5 +1,5 @@
-mod shared;
 mod ringbuf;
+mod shared;
 
 pub use ringbuf::*;
 pub use shared::*;

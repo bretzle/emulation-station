@@ -1,7 +1,6 @@
 use crate::bitfield;
 use crate::core::video::vram::VramRegion;
 use crate::util::Shared;
-use std::collections::HashSet;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -103,10 +102,10 @@ pub struct Ppu {
 
 impl Ppu {
     pub fn new(
-        bg: &Shared<VramRegion>,
-        obj: &Shared<VramRegion>,
-        bg_extended: &Shared<VramRegion>,
-        obj_extended: &Shared<VramRegion>,
+        _bg: &Shared<VramRegion>,
+        _obj: &Shared<VramRegion>,
+        _bg_extended: &Shared<VramRegion>,
+        _obj_extended: &Shared<VramRegion>,
         lcdc: &Shared<VramRegion>,
     ) -> Self {
         Self {
@@ -208,7 +207,7 @@ impl Ppu {
         }
     }
 
-    fn apply_master_brightness(&mut self, line: u16) {
+    fn apply_master_brightness(&mut self, _line: u16) {
         let factor = self.master_bright.factor().min(16);
         if factor != 0 {
             todo!()

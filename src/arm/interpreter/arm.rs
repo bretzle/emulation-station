@@ -33,7 +33,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         let ArmBranchLink {
             link,
             offset,
-            condition,
+            condition: _,
         } = ArmBranchLink::decode(instruction);
         if link {
             self.state.gpr[14] = self.state.gpr[15] - 4;
@@ -48,7 +48,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             ];
             for (addr, name) in fns {
                 if self.state.gpr[15] + offset == addr {
-                    log::debug!("{name}: {:x} {:08x?}", old-8, self.state.gpr);
+                    log::debug!("{name}: {:x} {:08x?}", old - 8, self.state.gpr);
                 }
             }
         }
@@ -473,7 +473,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             pre,
             rd,
             rn,
-            condition,
+            condition: _,
             rhs,
         } = ArmSingleDataTransfer::decode(instruction);
         let mut addr = self.state.gpr[rn as usize];
@@ -486,7 +486,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                 shift_type,
                 amount,
             } => {
-                let (result, carry) =
+                let (result, _carry) =
                     self.barrel_shifter(self.state.gpr[rm as usize], shift_type, amount, true);
                 result
             }
@@ -543,7 +543,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             rd,
             rn,
             opcode,
-            condition,
+            condition: _,
             rhs,
         } = ArmDataProcessing::decode(instruction);
 

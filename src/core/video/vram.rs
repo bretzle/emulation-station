@@ -1,9 +1,9 @@
 use crate::bitfield;
 use crate::util::Shared;
-use std::collections::HashSet;
+
 use std::fmt::Debug;
-use std::mem::size_of;
-use std::ops::{BitOr, BitOrAssign};
+
+use std::ops::BitOrAssign;
 
 pub enum VramBank {
     A,
@@ -141,7 +141,7 @@ impl Vram {
         self.reset_regions();
 
         if self.vramcnt[0].enable() {
-            let offset = self.vramcnt[0].offset();
+            let _offset = self.vramcnt[0].offset();
             match self.vramcnt[0].mst() {
                 0 => self.lcdc.map(self.bank_a.as_mut_ptr(), 0, 0x20000),
                 1 => todo!(),
@@ -152,7 +152,7 @@ impl Vram {
         }
 
         if self.vramcnt[1].enable() {
-            let offset = self.vramcnt[1].offset();
+            let _offset = self.vramcnt[1].offset();
             match self.vramcnt[1].mst() {
                 0 => self.lcdc.map(self.bank_b.as_mut_ptr(), 0x20000, 0x20000),
                 1 => todo!(),
@@ -163,7 +163,7 @@ impl Vram {
         }
 
         if self.vramcnt[2].enable() {
-            let offset = self.vramcnt[2].offset();
+            let _offset = self.vramcnt[2].offset();
             match self.vramcnt[2].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -181,7 +181,7 @@ impl Vram {
         }
 
         if self.vramcnt[3].enable() {
-            let offset = self.vramcnt[3].offset();
+            let _offset = self.vramcnt[3].offset();
             match self.vramcnt[3].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -199,7 +199,7 @@ impl Vram {
         }
 
         if self.vramcnt[4].enable() {
-            let offset = self.vramcnt[4].offset();
+            let _offset = self.vramcnt[4].offset();
             match self.vramcnt[4].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -211,7 +211,7 @@ impl Vram {
         }
 
         if self.vramcnt[5].enable() {
-            let offset = self.vramcnt[5].offset();
+            let _offset = self.vramcnt[5].offset();
             match self.vramcnt[5].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -224,7 +224,7 @@ impl Vram {
         }
 
         if self.vramcnt[6].enable() {
-            let offset = self.vramcnt[6].offset();
+            let _offset = self.vramcnt[6].offset();
             match self.vramcnt[6].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -237,7 +237,7 @@ impl Vram {
         }
 
         if self.vramcnt[7].enable() {
-            let offset = self.vramcnt[7].offset();
+            let _offset = self.vramcnt[7].offset();
             match self.vramcnt[7].mst() {
                 0 => todo!(),
                 1 => todo!(),
@@ -247,7 +247,7 @@ impl Vram {
         }
 
         if self.vramcnt[8].enable() {
-            let offset = self.vramcnt[8].offset();
+            let _offset = self.vramcnt[8].offset();
             match self.vramcnt[8].mst() {
                 0 => todo!(),
                 1 => todo!(),

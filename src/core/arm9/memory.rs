@@ -1,7 +1,3 @@
-use std::io::read_to_string;
-use std::mem::size_of;
-use std::ptr::{addr_of, addr_of_mut};
-
 use log::{error, warn};
 
 use crate::arm::coprocessor::Tcm;
@@ -342,12 +338,12 @@ impl Arm9Memory {
             }
             MMIO_IPCFIFOCNT => {
                 if MASK & 0xffff != 0 {
-                    self.system.ipc.write_ipcfifocnt(Arch::ARMv5, val as _, MASK as _);
+                    self.system
+                        .ipc
+                        .write_ipcfifocnt(Arch::ARMv5, val as _, MASK as _);
                 }
             }
-            MMIO_IPCFIFOSEND => {
-                self.system.ipc.write_ipcfifosend(Arch::ARMv5, val)
-            }
+            MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv5, val),
             MMIO_IME => self.system.arm9.get_irq().write_ime(val, MASK),
             MMIO_IE => self.system.arm9.get_irq().write_ie(val, MASK),
             MMIO_IRF => self.system.arm9.get_irq().write_irf(val, MASK),

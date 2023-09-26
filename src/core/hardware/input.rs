@@ -72,7 +72,7 @@ impl Input {
         if pressed {
             self.extkeyin &= !(1 << 6)
         } else {
-            self.extkeyin |= (1 << 6)
+            self.extkeyin |= 1 << 6
         }
     }
 

@@ -1,6 +1,8 @@
-use std::fs::File;
 use log::LevelFilter;
-use simplelog::{ColorChoice, ConfigBuilder, TermLogger, TerminalMode, CombinedLogger, WriteLogger};
+use simplelog::{
+    ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
+};
+use std::fs::File;
 
 use crate::application::Application;
 
@@ -16,19 +18,16 @@ fn main() {
         .add_filter_ignore_str("naga")
         .set_time_level(LevelFilter::Off)
         .build();
-    CombinedLogger::init(vec! [
+    CombinedLogger::init(vec![
         TermLogger::new(
             LevelFilter::Trace,
             config.clone(),
             TerminalMode::Mixed,
             ColorChoice::Auto,
         ),
-        WriteLogger::new(
-            LevelFilter::Trace,
-            config,
-            File::create("out.log").unwrap(),
-        )
-    ]).unwrap();
+        WriteLogger::new(LevelFilter::Trace, config, File::create("out.log").unwrap()),
+    ])
+    .unwrap();
 
     let mut app = Application::new();
     app.start();
