@@ -6,12 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-color-eyre = "0.6.2"
+color-backtrace = "0.6.0"
 log = "0.4.20"
+miniquad = "0.4.0-alpha.10"
 paste = "1"
-pixels = "0.13.0"
 simplelog = "0.12.1"
-winit = "0.28.6"
 
 [profile.dev]
 overflow-checks = false

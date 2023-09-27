@@ -1,8 +1,9 @@
+use std::fs::File;
+
 use log::LevelFilter;
 use simplelog::{
     ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
 };
-use std::fs::File;
 
 use crate::application::Application;
 
@@ -12,7 +13,7 @@ mod core;
 mod util;
 
 fn main() {
-    color_eyre::install().unwrap();
+    color_backtrace::install();
     let config = ConfigBuilder::new()
         .add_filter_ignore_str("wgpu")
         .add_filter_ignore_str("naga")
@@ -29,6 +30,17 @@ fn main() {
     ])
     .unwrap();
 
-    let mut app = Application::new();
-    app.start();
+    let conf = miniquad::conf::Conf {
+        window_width: 256 * 2,
+        window_height: 192 * 2 * 2,
+        window_title: "emulation station".to_string(),
+        window_resizable: false,
+        ..Default::default()
+    };
+
+    miniquad::start(conf, || {
+        let mut app = Application::new();
+        app.boot_game("roms/rockwrestler.nds");
+        app
+    });
 }

@@ -52,14 +52,18 @@ impl Scheduler {
     }
 
     pub fn run(&mut self) {
-        for event in &self.events {
+        let mut to_remove = vec![];
+        for (idx, event) in self.events.iter().enumerate() {
             if event.time <= self.current_time {
                 // trace!("running '{}' at {}", event.info.name, event.time);
+                to_remove.push(idx);
                 (event.info.callback)(&mut self.system);
             }
         }
 
-        self.events.retain(|e| e.time > self.current_time);
+        for idx in to_remove.into_iter().rev() {
+            self.events.remove(idx);
+        }
     }
 
     pub fn add_event(&mut self, delay: u64, info: &Rc<EventInfo>) {
