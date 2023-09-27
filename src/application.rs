@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::hash::Hasher;
 
 use miniquad::{
     Backend, Bindings, BufferLayout, BufferSource, BufferType, BufferUsage, EventHandler,
@@ -10,6 +10,8 @@ use crate::core::config::BootMode;
 use crate::core::hardware::input::InputEvent;
 use crate::core::System;
 use crate::core::video::Screen;
+use crate::framecounter::FrameCounter;
+use crate::framelimiter::FrameLimiter;
 use crate::util::Shared;
 
 #[repr(C)]
@@ -29,14 +31,15 @@ pub struct Application {
     ctx: Box<dyn RenderingBackend>,
     pipeline: Pipeline,
     bindings: Bindings,
+    framelimiter: FrameLimiter,
+    framecounter: FrameCounter,
 }
 
 impl Application {
     pub fn new() -> Box<Self> {
         let mut ctx = miniquad::window::new_rendering_backend();
 
-        #[rustfmt::skip]
-        let vertices: [Vertex; 4] = [
+        #[rustfmt::skip] let vertices: [Vertex; 4] = [
             Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
             Vertex { pos: Vec2 { x: 1.0, y: -1.0 }, uv: Vec2 { x: 1., y: 1. } },
             Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
@@ -96,6 +99,8 @@ impl Application {
             ctx,
             pipeline,
             bindings,
+            framelimiter: FrameLimiter::new(),
+            framecounter: FrameCounter::new(),
         })
     }
 
@@ -123,16 +128,18 @@ impl Application {
 }
 
 impl EventHandler for Application {
-    fn update(&mut self) {}
+    fn update(&mut self) {
+        self.framelimiter.run(|| {
+            self.system.run_frame();
+        })
+    }
 
     fn draw(&mut self) {
-        self.system.run_frame();
         let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
         let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
 
         self.ctx.texture_update_part(self.bindings.images[0], 0, 0, 256, 192, top);
         self.ctx.texture_update_part(self.bindings.images[0], 0, 192, 256, 192, bot);
-
 
         self.ctx.begin_default_pass(Default::default());
         self.ctx.apply_pipeline(&self.pipeline);
@@ -140,11 +147,26 @@ impl EventHandler for Application {
         self.ctx.draw(0, 6, 1);
         self.ctx.end_render_pass();
         self.ctx.commit_frame();
+
+        if let Some(_fps) = self.framecounter.inc().fps() {
+            dbg!(_fps);
+        }
     }
 
     fn key_down_event(&mut self, keycode: KeyCode, _: KeyMods, _: bool) {
         if let Some(event) = Self::convert(keycode) {
             self.system.input.handle_input(event, true);
+        } else {
+            match keycode {
+                KeyCode::F => {
+                    if self.framelimiter.is_fast_forward() {
+                        self.framelimiter.set_fast_forward(1.0)
+                    } else {
+                        self.framelimiter.set_fast_forward(4.0)
+                    }
+                }
+                _ => {}
+            }
         }
     }
 

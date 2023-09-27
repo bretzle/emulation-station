@@ -11,6 +11,8 @@ mod application;
 mod arm;
 mod core;
 mod util;
+mod framelimiter;
+mod framecounter;
 
 fn main() {
     color_backtrace::install();
