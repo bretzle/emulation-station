@@ -7,6 +7,7 @@ use crate::core::hardware::cartridge::Cartridge;
 use crate::core::hardware::dma::Dma;
 use crate::core::hardware::input::Input;
 use crate::core::hardware::ipc::Ipc;
+use crate::core::hardware::math_unit::MathUnit;
 use crate::core::scheduler::Scheduler;
 use crate::core::video::VideoUnit;
 use crate::util::Shared;
@@ -28,7 +29,7 @@ pub struct System {
     dma7: Dma,
     dma9: Dma,
     ipc: Ipc,
-    // math_unit: (),
+    math_unit: MathUnit,
     // rtc: (),
     // spi: (),
     // timer7: (),
@@ -57,6 +58,7 @@ impl System {
             dma7: Dma::new(Arch::ARMv4, system),
             dma9: Dma::new(Arch::ARMv5, system),
             ipc: Ipc::new(system),
+            math_unit: MathUnit::default(),
             scheduler: Scheduler::new(system),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
             wramcnt: 0,

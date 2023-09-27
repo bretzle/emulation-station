@@ -227,4 +227,22 @@ impl VideoUnit {
         mask &= 0x820f;
         self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);
     }
+
+    pub fn write_oam<T>(&mut self, addr: u32, val: T) {
+        unsafe {
+            std::ptr::write(
+                self.oam.as_mut_ptr().add((addr & 0x7ff) as usize).cast(),
+                val
+            )
+        }
+    }
+
+    pub fn write_palette_ram<T>(&mut self, addr: u32, val: T) {
+        unsafe {
+            std::ptr::write(
+                self.palette_ram.as_mut_ptr().add((addr & 0x7ff) as usize).cast(),
+                val
+            )
+        }
+    }
 }

@@ -279,10 +279,10 @@ impl Memory for Arm9Memory {
         match addr >> 24 {
             0x00 | 0x01 => {}
             0x04 => self.mmio_write_word(addr, val),
-            0x05 => todo!(),
+            0x05 => self.system.video_unit.write_palette_ram(addr, val),
             0x06 => self.system.video_unit.vram.write(addr, val),
-            0x07 => todo!(),
-            0x08 | 0x09 => todo!(),
+            0x07 => self.system.video_unit.write_oam(addr, val),
+            0x08 | 0x09 => {} // ignore gpa cart writes
             _ => warn!("ARM9Memory: handle 32-bit write {addr:08x} = {val:08x}"),
         }
     }
@@ -298,6 +298,19 @@ const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
 const MMIO_IRF: u32 = mmio!(0x04000214);
 const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
+const MMIO_DIVCNT: u32 = mmio!(0x04000280);
+const MMIO_DIV_NUMER: u32 = mmio!(0x04000290);
+const MMIO_DIV_NUMER2: u32 = mmio!(0x04000294);
+const MMIO_DIV_DENOM: u32 = mmio!(0x04000298);
+const MMIO_DIV_DENOM2: u32 = mmio!(0x0400029c);
+const MMIO_DIV_RESULT: u32 = mmio!(0x040002a0);
+const MMIO_DIV_RESULT2: u32 = mmio!(0x040002a4);
+const MMIO_DIV_REM_RESULT: u32 = mmio!(0x040002a8);
+const MMIO_DIV_REM_RESULT2: u32 = mmio!(0x040002ac);
+const MMIO_SQRT_CNT: u32 = mmio!(0x040002b0);
+const MMIO_SQRT_RESULT: u32 = mmio!(0x040002b4);
+const MMIO_SQRT_PARAM: u32 = mmio!(0x040002b8);
+const MMIO_SQRT_PARAM2: u32 = mmio!(0x040002bc);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
@@ -373,13 +386,26 @@ impl Arm9Memory {
                         .write_vramcnt(VramBank::D, (val >> 24) as u8)
                 }
             }
+            MMIO_DIVCNT => self.system.math_unit.write_divcnt(val as _, MASK as _),
+            MMIO_DIV_NUMER => self.system.math_unit.write_div_numer(val as _, MASK as _),
+            MMIO_DIV_NUMER2 => self.system.math_unit.write_div_numer((val as u64) << 32, (MASK as u64) << 32),
+            MMIO_DIV_DENOM => self.system.math_unit.write_div_denom(val as _, MASK as _),
+            MMIO_DIV_DENOM2 => self.system.math_unit.write_div_denom((val as u64) << 32, (MASK as u64) << 32),
+            // MMIO_DIV_RESULT => unreachable!(),
+            // MMIO_DIV_RESULT2 => unreachable!(),
+            // MMIO_DIV_REM_RESULT => unreachable!(),
+            // MMIO_DIV_REM_RESULT2 => unreachable!(),
+            MMIO_SQRT_CNT => self.system.math_unit.write_sqrtcnt(val as _, MASK as _),
+            // MMIO_SQRT_RESULT => unreachable!(),
+            MMIO_SQRT_PARAM => self.system.math_unit.write_sqrt_param(val as _, MASK as _),
+            MMIO_SQRT_PARAM2 => self.system.math_unit.write_sqrt_param((val as u64) << 32, (MASK as u64) << 32),
             MMIO_POSTFLG => {
                 if MASK & 0xff != 0 {
                     self.write_postflg(val as u8)
                 }
             }
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
-            _ => panic!(
+            _ => warn!(
                 "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),
@@ -437,8 +463,21 @@ impl Arm9Memory {
             MMIO_IME => return self.system.arm9.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm9.get_irq().read_ie(),
             MMIO_IRF => return self.system.arm9.get_irq().read_irf(),
+            MMIO_DIVCNT => return self.system.math_unit.read_divcnt() as _,
+            MMIO_DIV_NUMER => return self.system.math_unit.read_div_numer() as _,
+            MMIO_DIV_NUMER2 => return (self.system.math_unit.read_div_numer() >> 32) as _,
+            MMIO_DIV_DENOM => return self.system.math_unit.read_div_denom() as _,
+            MMIO_DIV_DENOM2 => return (self.system.math_unit.read_div_denom() >> 32) as _,
+            MMIO_DIV_RESULT => return self.system.math_unit.read_div_result() as _,
+            MMIO_DIV_RESULT2 => return (self.system.math_unit.read_div_result() >> 32) as _,
+            MMIO_DIV_REM_RESULT => return self.system.math_unit.read_divrem_result() as _,
+            MMIO_DIV_REM_RESULT2 => return (self.system.math_unit.read_divrem_result() >> 32) as _,
+            MMIO_SQRT_CNT => return self.system.math_unit.read_sqrtcnt() as _,
+            MMIO_SQRT_RESULT => return self.system.math_unit.read_sqrt_result(),
+            MMIO_SQRT_PARAM => return self.system.math_unit.read_sqrt_param() as u32,
+            MMIO_SQRT_PARAM2 => return (self.system.math_unit.read_sqrt_param() >> 32) as _,
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv5),
-            _ => panic!(
+            _ => warn!(
                 "ARM9Memory: unmapped {}-bit read {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),
