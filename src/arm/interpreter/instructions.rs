@@ -443,8 +443,8 @@ pub struct ArmSaturatingAddSubtract {
     pub rm: GPR,
     pub rd: GPR,
     pub rn: GPR,
-    pub double_rhs: bool,
     pub sub: bool,
+    pub double_rhs: bool,
 }
 
 impl ArmSaturatingAddSubtract {
@@ -453,8 +453,8 @@ impl ArmSaturatingAddSubtract {
             rm: get_field::<0, 4>(instruction).into(),
             rd: get_field::<12, 4>(instruction).into(),
             rn: get_field::<16, 4>(instruction).into(),
-            double_rhs: bit::<21>(instruction),
-            sub: bit::<22>(instruction),
+            sub: bit::<21>(instruction),
+            double_rhs: bit::<22>(instruction),
         }
     }
 }

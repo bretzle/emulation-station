@@ -145,8 +145,8 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             rm,
             rd,
             rn,
-            double_rhs,
             sub,
+            double_rhs,
         } = ArmSaturatingAddSubtract::decode(instruction);
         let lhs = self.state.gpr[rm as usize];
         let mut rhs = self.state.gpr[rn as usize];
@@ -407,9 +407,6 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         }
 
         let user_switch_mode = psr && (!load || !r15_in_rlist);
-        if user_switch_mode {
-            self.switch_mode(Mode::User);
-        }
 
         for i in first..16 {
             if !(rlist & (1 << i) != 0) {
@@ -421,7 +418,12 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             }
 
             if load {
-                self.state.gpr[i] = self.memory.read_word(addr);
+                let val = self.memory.read_word(addr);
+                if user_switch_mode && i != 15 && i >= if self.state.cpsr.mode() == Mode::Fiq {8}else{13} {
+                    self.state.gpr_banked[Bank::USR as usize][i - 8] = val;
+                } else {
+                    self.state.gpr[i] = val;
+                }
             } else {
                 self.memory.write_word(addr, self.state.gpr[i]);
             }
