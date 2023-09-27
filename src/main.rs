@@ -11,8 +11,7 @@ mod application;
 mod arm;
 mod core;
 mod util;
-mod framelimiter;
-mod framecounter;
+mod framehelper;
 
 fn main() {
     color_backtrace::install();
@@ -32,17 +31,21 @@ fn main() {
     ])
     .unwrap();
 
-    let conf = miniquad::conf::Conf {
-        window_width: 256 * 2,
-        window_height: 192 * 2 * 2,
-        window_title: "emulation station".to_string(),
-        window_resizable: false,
-        ..Default::default()
-    };
+    // let conf = miniquad::conf::Conf {
+    //     window_width: 256 * 2,
+    //     window_height: 192 * 2 * 2,
+    //     window_title: "emulation station".to_string(),
+    //     window_resizable: false,
+    //     ..Default::default()
+    // };
 
-    miniquad::start(conf, || {
-        let mut app = Application::new();
-        app.boot_game("roms/rockwrestler.nds");
-        app
-    });
+    // miniquad::start(conf, || {
+    //     let mut app = Application::new();
+    //     app.boot_game("roms/rockwrestler.nds");
+    //     app
+    // });
+
+    let mut app = Application::new();
+    app.boot_game("roms/rockwrestler.nds");
+    app.run();
 }
