@@ -53,6 +53,29 @@ impl Coprocessor for Arm9Coprocessor {
                     self.control.itcm_enable() && !self.control.itcm_write_only();
                 self.memory.itcm.enable_writes = self.control.itcm_enable();
             }
+            0x020000 => {}
+            0x020001 => {}
+            0x030000 => {}
+            0x050002 => {}
+            0x050003 => {}
+            0x060000 => {}
+            0x060100 => {}
+            0x060200 => {}
+            0x060300 => {}
+            0x060400 => {}
+            0x060500 => {}
+            0x060600 => {}
+            0x060700 => {}
+            0x070500 => {}
+            0x070501 => {}
+            0x070600 => {}
+            0x070601 => {}
+            0x070602 => {}
+            0x070a01 => {}
+            0x070a02 => {}
+            0x070a04 => {}
+            0x070e01 => {}
+            0x070e02 => {}
             0x090100 => {
                 self.dtcm_control.0 = val;
                 self.memory.dtcm.base = self.dtcm_control.base() << 12;
@@ -76,7 +99,11 @@ impl Coprocessor for Arm9Coprocessor {
     }
 
     fn get_exception_base(&self) -> u32 {
-        todo!()
+        if self.control.exception_vector() {
+            0xffff0000
+        } else {
+            0x00000000
+        }
     }
 }
 

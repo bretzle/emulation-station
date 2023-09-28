@@ -3,8 +3,8 @@ use log::{error, warn};
 use crate::arm::coprocessor::Tcm;
 use crate::arm::cpu::Arch;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
-use crate::core::video::vram::VramBank;
 use crate::core::System;
+use crate::core::video::vram::VramBank;
 use crate::util::Shared;
 
 macro_rules! mmio {
@@ -32,7 +32,7 @@ impl Arm9Memory {
         Self {
             system: system.clone(),
             postflg: 0,
-            bios: vec![].into_boxed_slice(),
+            bios: std::fs::read("firmware/bios9.bin").unwrap().into_boxed_slice(),
             dtcm_data: vec![0; 0x4000].into_boxed_slice(),
             itcm_data: vec![0; 0x8000].into_boxed_slice(),
 
@@ -55,6 +55,14 @@ impl Arm9Memory {
         self.itcm.mask = self.itcm_data.len() as u32 - 1;
 
         unsafe {
+            let ptr = self.bios.as_mut_ptr();
+            self.map(
+                0xffff0000,
+                0xffff8000,
+                ptr,
+                0x7fff,
+                RegionAttributes::Read,
+            );
             let ptr = self.system.main_memory.as_mut_ptr();
             self.map(
                 0x02000000,

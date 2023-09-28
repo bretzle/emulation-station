@@ -48,7 +48,7 @@ impl Application {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
 
-        let window = WindowBuilder::new().with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2)).build(&event_loop).unwrap();
+        let window = WindowBuilder::new().with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2)).with_resizable(false).build(&event_loop).unwrap();
         let gl = unsafe { GlContext::create(Default::default(), &window).unwrap() };
         gl.make_current();
         gl.set_swap_interval(true);
