@@ -1,5 +1,5 @@
 use crate::arm::coprocessor::Coprocessor;
-use crate::arm::cpu::Cpu;
+use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
 
 use crate::util::Shared;
@@ -50,8 +50,16 @@ impl<M: Memory, C: Coprocessor> Irq<M, C> {
         self.irf = 0;
     }
 
-    pub fn raise(&mut self, _source: IrqSource) {
-        todo!()
+    pub fn raise(&mut self, source: IrqSource) {
+        let source = source as u32;
+
+        self.irf |= 1 << source;
+        if self.ie & (1 << source) != 0 {
+            if self.ime || self.cpu.arch == Arch::ARMv4 {
+                self.cpu.update_halted(false);
+            }
+        }
+        self.update();
     }
 
     pub const fn read_ime(&self) -> bool {

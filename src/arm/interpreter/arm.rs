@@ -45,6 +45,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             let fns: Vec<(u32, &str)> = vec![
                 // (0x20002a4, "_Z11draw_stringiiPKc"),
                 // (0x02000240, "_Z9draw_tileiii")
+                // (0x02004e48, "timeout_test")
             ];
             for (addr, name) in fns {
                 if self.state.gpr[15] + offset == addr {

@@ -71,6 +71,10 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
         self.halted
     }
 
+    pub fn update_halted(&mut self, val: bool) {
+        self.halted = val;
+    }
+
     pub fn run(&mut self, cycles: u64) {
         for _ in 0..cycles {
             if self.halted {
@@ -78,7 +82,7 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
             }
 
             if self.irq && !self.state.cpsr.i() {
-                todo!("handle interrupts")
+                self.handle_interrupt();
             }
 
             self.instruction = self.pipeline[0];
@@ -100,6 +104,23 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                 }
             }
         }
+    }
+
+    fn handle_interrupt(&mut self) {
+        self.halted = false;
+        self.state.spsr_at(Bank::IRQ).0 = self.state.cpsr.0;
+        self.switch_mode(Mode::Irq);
+        self.state.cpsr.set_i(true);
+
+        if self.state.cpsr.thumb() {
+            self.state.cpsr.set_thumb(false);
+            self.state.gpr[14] = self.state.gpr[15];
+        } else {
+            self.state.gpr[14] = self.state.gpr[15] - 4;
+        }
+
+        self.state.gpr[15] = self.coprocessor.get_exception_base() + 0x18;
+        self.arm_flush_pipeline();
     }
 
     pub fn evaluate_cond(&self, cond: Condition) -> bool {

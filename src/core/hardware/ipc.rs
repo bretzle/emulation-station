@@ -1,3 +1,4 @@
+use log::info;
 use crate::arm::cpu::Arch;
 use crate::bitfield;
 use crate::core::hardware::irq::IrqSource;

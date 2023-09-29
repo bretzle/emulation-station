@@ -155,12 +155,15 @@ impl Arm9Memory {
         // TODO: if bus = Data
         if dtcm.enable_reads && addr >= dtcm.base && addr < dtcm.limit {
             // return common::read<T>(dtcm.data, (addr - dtcm.config.base) & dtcm.mask);
-            todo!()
+            return Some(unsafe {
+                let offset = (addr - dtcm.base) & dtcm.mask;
+                *dtcm.data.add(offset as usize).cast::<T>()
+            });
         }
 
-        let pointer = unsafe { self.read_table.get_pointer::<T>(addr) };
-        if !pointer.is_null() {
-            return Some(unsafe { std::ptr::read(pointer.cast()) });
+        let ptr = self.read_table.get_pointer::<T>(addr);
+        if !ptr.is_null() {
+            return Some(unsafe { std::ptr::read(ptr.cast()) });
         }
 
         None

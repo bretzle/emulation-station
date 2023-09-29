@@ -12,6 +12,6 @@ impl Coprocessor for Arm7Coprocessor {
     }
 
     fn get_exception_base(&self) -> u32 {
-        unimplemented!()
+        0
     }
 }
