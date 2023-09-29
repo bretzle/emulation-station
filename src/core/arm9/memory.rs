@@ -323,7 +323,6 @@ const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
-// mmio write
 impl Arm9Memory {
     fn mmio_write_byte(&mut self, addr: u32, val: u8) {
         let mirrored = val as u32 * 0x01010101;
@@ -423,7 +422,6 @@ impl Arm9Memory {
     }
 }
 
-// mmio read
 impl Arm9Memory {
     fn mmio_read_byte(&mut self, addr: u32) -> u8 {
         match addr & 0x3 {

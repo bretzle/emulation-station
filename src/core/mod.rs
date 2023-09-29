@@ -1,5 +1,6 @@
 use crate::arm::cpu::Arch;
 use log::debug;
+use crate::core::arm7::Arm7;
 
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
@@ -20,7 +21,7 @@ pub mod scheduler;
 pub mod video;
 
 pub struct System {
-    // arm7: (),
+    arm7: Arm7,
     arm9: Arm9,
     cartridge: Cartridge,
     pub video_unit: VideoUnit,
@@ -51,6 +52,7 @@ pub struct System {
 impl System {
     pub fn new() -> Shared<Self> {
         Shared::new_cyclic(|system| Self {
+            arm7: Arm7::new(system),
             arm9: Arm9::new(system),
             cartridge: Cartridge::new(system),
             video_unit: VideoUnit::new(system),
@@ -67,6 +69,7 @@ impl System {
     }
 
     pub fn reset(&mut self) {
+        self.arm7.reset();
         self.arm9.reset();
         self.cartridge.load(&self.config.game_path);
         self.video_unit.reset();
@@ -94,6 +97,7 @@ impl System {
             }
 
             self.arm9.run(2 * cycles);
+            self.arm7.run(cycles);
             self.scheduler.tick(cycles);
             self.scheduler.run();
         }
@@ -102,20 +106,20 @@ impl System {
         self.video_unit.ppu_b.on_finish_frame();
     }
 
-    pub fn step(&mut self) {
-        self.arm9.run(1);
-        self.scheduler.tick(1);
-        self.scheduler.run();
-
-        self.video_unit.ppu_a.on_finish_frame();
-        self.video_unit.ppu_b.on_finish_frame();
-    }
+    // pub fn step(&mut self) {
+    //     self.arm9.run(1);
+    //     self.scheduler.tick(1);
+    //     self.scheduler.run();
+    //
+    //     self.video_unit.ppu_a.on_finish_frame();
+    //     self.video_unit.ppu_b.on_finish_frame();
+    // }
 
     fn direct_boot(&mut self) {
         self.write_wramcnt(0x03);
 
         self.cartridge.direct_boot();
-        // self.arm7.direct_boot();
+        self.arm7.direct_boot();
         self.arm9.direct_boot();
         // self.spi.direct_boot();
 

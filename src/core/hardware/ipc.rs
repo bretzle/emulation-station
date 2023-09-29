@@ -103,12 +103,12 @@ impl Ipc {
 
         mask &= 0x6f00;
         self.ipcsync[tx].0 = (self.ipcsync[tx].0 & !mask) | (val & mask);
-        self.ipcsync[rx].set_input(self.ipcsync[tx].input());
+        self.ipcsync[rx].set_input(self.ipcsync[tx].output());
 
         if self.ipcsync[tx].send_irq() && self.ipcsync[rx].enable_irq() {
             match arch {
                 Arch::ARMv4 => self.system.arm9.get_irq().raise(IrqSource::IPCSync),
-                Arch::ARMv5 => todo!(),
+                Arch::ARMv5 => self.system.arm7.get_irq().raise(IrqSource::IPCSync),
             }
         }
     }
@@ -130,7 +130,7 @@ impl Ipc {
 
             if self.ipcfifocnt[tx].send_fifo_empty_irq() {
                 match arch {
-                    Arch::ARMv4 => todo!(),
+                    Arch::ARMv4 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty),
                     Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
                 }
             }
@@ -141,7 +141,7 @@ impl Ipc {
             && self.ipcfifocnt[tx].send_fifo_empty()
         {
             match arch {
-                Arch::ARMv4 => todo!(),
+                Arch::ARMv4 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty),
                 Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
             }
         }
@@ -151,7 +151,11 @@ impl Ipc {
             && self.ipcfifocnt[tx].receive_fifo_empty()
         {
             match arch {
-                Arch::ARMv4 => todo!(),
+                Arch::ARMv4 => self
+                    .system
+                    .arm7
+                    .get_irq()
+                    .raise(IrqSource::IPCReceiveNonEmpty),
                 Arch::ARMv5 => self
                     .system
                     .arm9
@@ -183,7 +187,11 @@ impl Ipc {
                                 .arm9
                                 .get_irq()
                                 .raise(IrqSource::IPCReceiveNonEmpty),
-                            Arch::ARMv5 => todo!(),
+                            Arch::ARMv5 => self
+                                .system
+                                .arm7
+                                .get_irq()
+                                .raise(IrqSource::IPCReceiveNonEmpty),
                         }
                     }
                 } else if self.fifo[tx].len() == 16 {

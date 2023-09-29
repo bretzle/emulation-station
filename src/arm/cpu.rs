@@ -1,4 +1,5 @@
 use std::ops::Not;
+use std::sync::Arc;
 
 use log::warn;
 
@@ -8,7 +9,7 @@ use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
 use crate::util::Shared;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Arch {
     ARMv4,
     ARMv5,
@@ -93,9 +94,6 @@ impl<M: Memory, C: Coprocessor> Cpu<M, C> {
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
                 if self.evaluate_cond((self.instruction >> 28).into()) {
                     let handler = self.decoder.decode_arm(self.instruction);
-                    if self.state.gpr[15] - 8 == 0x2007b60 || self.state.gpr[15] - 4 == 0x2007b5c {
-                        println!("")
-                    }
                     (handler)(self, self.instruction);
                 } else {
                     self.state.gpr[15] += 4;

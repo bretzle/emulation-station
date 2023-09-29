@@ -45,13 +45,22 @@ impl Cartridge {
         }
 
         // transfer the arm7 code
-        // todo
+        for i in 0..self.header.arm7_size {
+            self.system.arm7.get_memory().write_byte(
+                self.header.arm7_ram_address + i,
+                self.file[(self.header.arm7_offset + i) as usize]
+            )
+        }
 
         debug!("Cartridge: cartridge data transferred into memory");
     }
 
     pub const fn get_arm9_entrypoint(&self) -> u32 {
         self.header.arm9_entrypoint
+    }
+
+    pub const fn get_arm7_entrypoint(&self) -> u32 {
+        self.header.arm7_entrypoint
     }
 }
 
