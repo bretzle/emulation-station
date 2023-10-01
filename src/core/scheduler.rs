@@ -101,24 +101,12 @@ impl Scheduler {
         self.events.get(0).map(|e| e.time).unwrap_or(u64::MAX)
     }
 
-    // todo: replace with Vec::binary_search_by
     fn calc_event_index(&self, event: &Event) -> usize {
-        if self.events.is_empty() {
-            return 0;
+        match self.events.binary_search_by(|other| {
+            other.time.cmp(&event.time)
+        }) {
+            Ok(idx) => idx,
+            Err(idx) => idx,
         }
-
-        let mut lower = 0;
-        let mut upper = self.events.len() - 1;
-
-        while lower <= upper {
-            let mid = (lower + upper) / 2;
-            if event.time > self.events[mid].time {
-                lower = mid + 1;
-            } else {
-                upper = mid - 1;
-            }
-        }
-
-        lower
     }
 }

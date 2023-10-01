@@ -4,6 +4,12 @@ use crate::core::scheduler::EventInfo;
 use crate::core::System;
 use crate::util::Shared;
 use std::rc::Rc;
+use crate::arm::memory::Memory;
+
+const ADJUST_LUT: [[i32; 4]; 2] = [
+    [2, -2, 0, 2],
+    [4, -4, 0, 4]
+];
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum DmaTiming {
@@ -25,7 +31,7 @@ enum AddressMode {
 }
 
 bitfield! {
-    #[derive(Default, Clone)]
+    #[derive(Default, Copy, Clone)]
     struct Control(u16) {
         // 0 | 4
         destination_control: u8 [AddressMode] => 5 | 6,
@@ -68,15 +74,24 @@ impl Dma {
         }
     }
 
+    #[rustfmt::skip]
     pub fn reset(&mut self) {
         self.channels.fill(Channel::default());
         self.dmafill.fill(0);
 
-        for te in &mut self.transfer_events {
-            *te = self
-                .system
-                .scheduler
-                .register_event("DMA Transfer", |_| todo!())
+        match self.arch {
+            Arch::ARMv4 => {
+                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(0));
+                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(1));
+                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(2));
+                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(3));
+            }
+            Arch::ARMv5 => {
+                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(0));
+                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(1));
+                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(2));
+                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(3));
+            }
         }
     }
 
@@ -91,5 +106,121 @@ impl Dma {
                 self.system.scheduler.add_event(1, &self.transfer_events[i]);
             }
         }
+    }
+
+    pub fn transfer(&mut self, id: usize) {
+        let channel = &mut self.channels[id];
+        let source_adjust = ADJUST_LUT[channel.control.transfer_words() as usize][channel.control.source_control() as usize];
+        let dest_adjust = ADJUST_LUT[channel.control.transfer_words() as usize][channel.control.destination_control() as usize];
+
+        if channel.control.transfer_words() {
+            for _ in 0..channel.internal_length {
+                match self.arch {
+                    Arch::ARMv4 => {
+                        let mem = self.system.arm7.get_memory();
+                        let val = mem.read_word(channel.internal_source);
+                        mem.write_word(channel.internal_destination, val);
+                    }
+                    Arch::ARMv5 => {
+                        let mem = self.system.arm9.get_memory();
+                        let val = mem.read_word(channel.internal_source);
+                        mem.write_word(channel.internal_destination, val);
+                    }
+                }
+                channel.internal_source += source_adjust as u32;
+                channel.internal_destination += dest_adjust as u32;
+            }
+        } else {
+            for _ in 0..channel.internal_length {
+                match self.arch {
+                    Arch::ARMv4 => {
+                        let mem = self.system.arm7.get_memory();
+                        let val = mem.read_half(channel.internal_source);
+                        mem.write_half(channel.internal_destination, val);
+                    }
+                    Arch::ARMv5 => {
+                        let mem = self.system.arm9.get_memory();
+                        let val = mem.read_half(channel.internal_source);
+                        mem.write_half(channel.internal_destination, val);
+                    }
+                }
+                channel.internal_source += source_adjust as u32;
+                channel.internal_destination += dest_adjust as u32;
+            }
+        }
+
+        if channel.control.irq() {
+            todo!()
+        }
+
+        if channel.control.repeat() && channel.control.timing() != DmaTiming::Immediate {
+            todo!()
+        } else {
+            channel.control.set_enable(false);
+        }
+    }
+
+    pub fn write_source(&mut self, id: usize, val: u32, mask: u32) {
+        self.channels[id].source = (self.channels[id].source & !mask) | (val & mask);
+    }
+
+    pub fn write_destination(&mut self, id: usize, val: u32, mask: u32) {
+        self.channels[id].destination = (self.channels[id].destination & !mask) | (val & mask);
+    }
+
+    pub fn write_length(&mut self, id: usize, val: u32, mask: u32) {
+        self.channels[id].length = (self.channels[id].length & !mask) | (val & mask);
+    }
+
+    pub fn write_control(&mut self, id: usize, val: u32, mask: u32) {
+        let channel = &mut self.channels[id];
+        let old = channel.control;
+
+        channel.length &= 0xffff;
+        channel.length |= (val & 0x1f & mask) << 16;
+        let val = val as u16;
+        let mask = mask as u16;
+        channel.control.0 = (channel.control.0 & !mask) | (val & mask);
+
+        if channel.control.enable() && channel.control.timing() == DmaTiming::GXFIFO {
+            todo!()
+        }
+
+        if old.enable() || !channel.control.enable() {
+            return;
+        }
+
+        channel.internal_source = channel.source;
+        channel.internal_destination = channel.destination;
+
+        if channel.length == 0 {
+            if self.arch == Arch::ARMv5 {
+                channel.internal_length = 0x200000
+            } else {
+                channel.internal_length = 0x10000
+            }
+        } else {
+            channel.internal_length = channel.length
+        }
+
+        if channel.control.timing() == DmaTiming::Immediate {
+            self.system.scheduler.add_event(1, &self.transfer_events[id])
+        }
+    }
+
+    pub fn write_dmafill(&mut self, addr: u32, val: u32) {
+        self.dmafill[((addr - 0x040000e0) / 4) as usize] = val
+    }
+
+    pub const fn read_length(&self, id: usize) -> u32 {
+        self.channels[id].length
+    }
+
+    pub const fn read_control(&self, id: usize) -> u16 {
+        self.channels[id].control.0
+    }
+
+    pub const fn read_dmafill(&self, addr: u32) -> u32 {
+        self.dmafill[((addr - 0x040000e0) / 4) as usize]
     }
 }

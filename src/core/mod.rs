@@ -74,6 +74,8 @@ impl System {
         self.arm9.reset();
         self.cartridge.load(&self.config.game_path);
         self.video_unit.reset();
+        self.dma7.reset();
+        self.dma9.reset();
         match self.config.boot_mode {
             BootMode::Firmware => todo!(),
             BootMode::Direct => self.direct_boot(),
