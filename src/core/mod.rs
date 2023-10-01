@@ -39,8 +39,8 @@ pub struct System {
     scheduler: Scheduler,
 
     main_memory: Box<[u8]>,
-    // shared_wram: (),
-    //
+    shared_wram: Box<[u8]>,
+
     wramcnt: u8,
     // haltcnt: (),
     // exmemcnt: (),
@@ -63,6 +63,7 @@ impl System {
             math_unit: MathUnit::default(),
             scheduler: Scheduler::new(system),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
+            shared_wram: vec![0; 0x8000].into_boxed_slice(),
             wramcnt: 0,
             config: Config::default(),
         })
@@ -128,6 +129,11 @@ impl System {
 
     fn write_wramcnt(&mut self, val: u8) {
         self.wramcnt = val & 0x3;
+        self.arm7.get_memory().update_wram_mapping();
         self.arm9.get_memory().update_wram_mapping();
+    }
+
+    pub const fn read_wramcnt(&self) -> u8 {
+        self.wramcnt
     }
 }

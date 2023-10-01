@@ -1,4 +1,5 @@
 use log::warn;
+
 use crate::arm::cpu::Arch;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
 use crate::core::System;
@@ -53,21 +54,52 @@ impl Arm7Memory {
         self.update_wram_mapping();
     }
 
-    fn update_wram_mapping(&mut self) {
-        match self.system.wramcnt {
-            0x0 => warn!("update_wram_mapping"),
-            0x1 => warn!("update_wram_mapping"),
-            0x2 => warn!("update_wram_mapping"),
-            0x3 => warn!("update_wram_mapping"),
-            _ => unreachable!(),
-        }
-
+    pub fn update_wram_mapping(&mut self) {
         unsafe {
-            let ptr = self.arm7_wram.as_mut_ptr();
+            match self.system.wramcnt {
+                0x0 => {
+                    self.map(
+                        0x03000000,
+                        0x03800000,
+                        self.arm7_wram.as_ptr() as _,
+                        0xffff,
+                        RegionAttributes::ReadWrite
+                    )
+                }
+                0x1 => {
+                    self.map(
+                        0x03000000,
+                        0x03800000,
+                        self.system.shared_wram.as_ptr() as _,
+                        0x3fff,
+                        RegionAttributes::ReadWrite
+                    )
+                }
+                0x2 => {
+                    self.map(
+                        0x03000000,
+                        0x03800000,
+                        self.system.shared_wram.as_ptr().add(0x4000) as _,
+                        0x3fff,
+                        RegionAttributes::ReadWrite
+                    )
+                }
+                0x3 => {
+                    self.map(
+                        0x03000000,
+                        0x03800000,
+                        self.system.shared_wram.as_ptr() as _,
+                        0x7fff,
+                        RegionAttributes::ReadWrite
+                    )
+                }
+                _ => unreachable!(),
+            }
+
             self.map(
                 0x03800000,
                 0x04000000,
-                ptr,
+                self.arm7_wram.as_ptr() as _,
                 0xffff,
                 RegionAttributes::ReadWrite,
             );
@@ -110,7 +142,7 @@ impl Memory for Arm7Memory {
 
         match addr >> 24 {
             0x04 => self.mmio_read_byte(addr),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.arm7_vram.read(addr),
             0x08 | 0x09 => todo!(),
             _ => {
                 warn!("ARM7Memory: handle 8-bit read {addr:08x}");
@@ -127,7 +159,7 @@ impl Memory for Arm7Memory {
 
         match addr >> 24 {
             0x04 => self.mmio_read_half(addr),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.arm7_vram.read(addr),
             0x08 | 0x09 => todo!(),
             _ => {
                 warn!("ARM7Memory: handle 16-bit read {addr:08x}");
@@ -144,7 +176,7 @@ impl Memory for Arm7Memory {
 
         match addr >> 24 {
             0x04 => self.mmio_read_word(addr),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.arm7_vram.read(addr),
             0x08 | 0x09 => todo!(),
             _ => {
                 warn!("ARM7Memory: handle 32-bit read {addr:08x}");
@@ -203,11 +235,14 @@ macro_rules! mmio {
 const MMIO_RCNT: u32 = mmio!(0x04000134);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
+const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
 const MMIO_IRF: u32 = mmio!(0x04000214);
+const MMIO_VRAMSTAT: u32 = mmio!(0x04000240);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
+const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
 
 fn get_access_size(mut mask: u32) -> u32 {
@@ -264,6 +299,15 @@ impl Arm7Memory {
             MMIO_IME => return self.system.arm7.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm7.get_irq().read_ie(),
             MMIO_IRF => return self.system.arm7.get_irq().read_irf(),
+            MMIO_VRAMSTAT => {
+                if MASK & 0xff != 0 {
+                    val |= self.system.video_unit.vram.read_vramstat() as u32
+                }
+                if MASK & 0xff00 != 0 {
+                    val |= (self.system.read_wramcnt() as u32) << 8
+                }
+            }
+            MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit read {:08x}",
                 get_access_size(MASK),
@@ -318,6 +362,7 @@ impl Arm7Memory {
                         .write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _);
                 }
             }
+            MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv4, val),
             MMIO_IME => return self.system.arm7.get_irq().write_ime(val, MASK),
             MMIO_IE => return self.system.arm7.get_irq().write_ie(val, MASK),
             MMIO_IRF => return self.system.arm7.get_irq().write_irf(val, MASK),

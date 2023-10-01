@@ -71,6 +71,14 @@ impl<const N: usize> PageTable<N> {
         }
     }
 
+    pub unsafe fn unmap(&mut self, base: u32, end: u32) {
+        for addr in (base..end).step_by(Self::PAGE_SIZE as _) {
+            let l1_entry = &mut self.inner[Self::get_l1_index(addr)];
+            let l2_entry = &mut l1_entry[Self::get_l2_index(addr)];
+            *l2_entry = std::ptr::null_mut();
+        }
+    }
+
     fn get_l1_index(addr: u32) -> usize {
         addr as usize >> Self::L1_SHIFT
     }

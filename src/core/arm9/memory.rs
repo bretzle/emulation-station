@@ -76,12 +76,44 @@ impl Arm9Memory {
     }
 
     pub fn update_wram_mapping(&mut self) {
-        match self.system.wramcnt {
-            0x0 => warn!("update_wram_mapping"),
-            0x1 => warn!("update_wram_mapping"),
-            0x2 => warn!("update_wram_mapping"),
-            0x3 => warn!("update_wram_mapping"),
-            _ => unreachable!(),
+        unsafe {
+            match self.system.wramcnt {
+                0x0 => {
+                    self.map(
+                        0x03000000,
+                        0x04000000,
+                        self.system.shared_wram.as_ptr() as _,
+                        0x7fff,
+                        RegionAttributes::ReadWrite,
+                    );
+                }
+                0x1 => {
+                    self.map(
+                        0x03000000,
+                        0x04000000,
+                        self.system.shared_wram.as_ptr().add(0x4000) as _,
+                        0x3fff,
+                        RegionAttributes::ReadWrite,
+                    );
+                }
+                0x2 => {
+                    self.map(
+                        0x03000000,
+                        0x04000000,
+                        self.system.shared_wram.as_ptr() as _,
+                        0x3fff,
+                        RegionAttributes::ReadWrite,
+                    );
+                }
+                0x3 => {
+                    self.unmap(
+                        0x03000000,
+                        0x04000000,
+                        RegionAttributes::ReadWrite,
+                    );
+                }
+                _ => unreachable!(),
+            }
         }
     }
 
@@ -103,6 +135,17 @@ impl Arm9Memory {
             RegionAttributes::ReadWrite => {
                 self.read_table.map(base, end, ptr, mask);
                 self.write_table.map(base, end, ptr, mask);
+            }
+        }
+    }
+
+    unsafe fn unmap(&mut self, base: u32, end: u32, attributes: RegionAttributes) {
+        match attributes {
+            RegionAttributes::Read => self.read_table.unmap(base, end),
+            RegionAttributes::Write => self.write_table.unmap(base, end),
+            RegionAttributes::ReadWrite => {
+                self.read_table.unmap(base, end);
+                self.write_table.unmap(base, end);
             }
         }
     }
@@ -309,6 +352,8 @@ const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
 const MMIO_IRF: u32 = mmio!(0x04000214);
 const MMIO_VRAMCNT: u32 = mmio!(0x04000240);
+const MMIO_VRAMCNT2: u32 = mmio!(0x04000244);
+const MMIO_VRAMCNT3: u32 = mmio!(0x04000248);
 const MMIO_DIVCNT: u32 = mmio!(0x04000280);
 const MMIO_DIV_NUMER: u32 = mmio!(0x04000290);
 const MMIO_DIV_NUMER2: u32 = mmio!(0x04000294);
@@ -394,6 +439,37 @@ impl Arm9Memory {
                         .video_unit
                         .vram
                         .write_vramcnt(VramBank::D, (val >> 24) as u8)
+                }
+            }
+            MMIO_VRAMCNT2 => {
+                if MASK & 0xff != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::E, val as u8)
+                }
+                if MASK & 0xff00 != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::F, (val >> 8) as u8)
+                }
+                if MASK & 0xff0000 != 0 {
+                    self.system
+                        .video_unit
+                        .vram
+                        .write_vramcnt(VramBank::G, (val >> 16) as u8)
+                }
+                if MASK & 0xff000000 != 0 {
+                    self.system.write_wramcnt((val >> 24) as u8)
+                }
+            }
+            MMIO_VRAMCNT3 => {
+                if MASK & 0xff != 0 {
+                    self.system.video_unit.vram.write_vramcnt(VramBank::H, val as u8)
+                }
+                if MASK & 0xff00 != 0 {
+                    self.system.video_unit.vram.write_vramcnt(VramBank::I, (val >> 8) as u8)
                 }
             }
             MMIO_DIVCNT => self.system.math_unit.write_divcnt(val as _, MASK as _),

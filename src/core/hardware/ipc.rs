@@ -83,7 +83,7 @@ impl Ipc {
                             Arch::ARMv4 => {
                                 self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty)
                             }
-                            Arch::ARMv5 => todo!(),
+                            Arch::ARMv5 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty)
                         }
                     }
                 } else if self.fifo[rx].len() == 15 {
