@@ -9,6 +9,7 @@ use crate::core::hardware::dma::Dma;
 use crate::core::hardware::input::Input;
 use crate::core::hardware::ipc::Ipc;
 use crate::core::hardware::math_unit::MathUnit;
+use crate::core::hardware::spi::Spi;
 use crate::core::scheduler::Scheduler;
 use crate::core::video::VideoUnit;
 use crate::util::Shared;
@@ -32,7 +33,7 @@ pub struct System {
     ipc: Ipc,
     math_unit: MathUnit,
     // rtc: (),
-    // spi: (),
+    spi: Spi,
     // timer7: (),
     // timer9: (),
     // wifi: (),
@@ -61,6 +62,7 @@ impl System {
             dma9: Dma::new(Arch::ARMv5, system),
             ipc: Ipc::new(system),
             math_unit: MathUnit::default(),
+            spi: Spi::new(system),
             scheduler: Scheduler::new(system),
             main_memory: vec![0; 0x400000].into_boxed_slice(),
             shared_wram: vec![0; 0x8000].into_boxed_slice(),
@@ -76,6 +78,7 @@ impl System {
         self.video_unit.reset();
         self.dma7.reset();
         self.dma9.reset();
+        self.spi.reset();
         match self.config.boot_mode {
             BootMode::Firmware => todo!(),
             BootMode::Direct => self.direct_boot(),
@@ -124,7 +127,7 @@ impl System {
         self.cartridge.direct_boot();
         self.arm7.direct_boot();
         self.arm9.direct_boot();
-        // self.spi.direct_boot();
+        self.spi.direct_boot();
 
         debug!("System: direct booted successfully")
     }

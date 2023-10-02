@@ -223,6 +223,10 @@ impl VideoUnit {
         self.vcount as u32
     }
 
+    pub const fn read_powcnt1(&self) -> u32 {
+        self.powcnt1.0
+    }
+
     pub fn write_powcnt1(&mut self, val: u32, mut mask: u32) {
         mask &= 0x820f;
         self.powcnt1.0 = (self.powcnt1.0 & !mask) | (val & mask);

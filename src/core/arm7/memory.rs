@@ -248,11 +248,15 @@ const MMIO_RCNT: u32 = mmio!(0x04000134);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
+const MMIO_SPICNT: u32 = mmio!(0x040001c0);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
 const MMIO_IRF: u32 = mmio!(0x04000214);
 const MMIO_VRAMSTAT: u32 = mmio!(0x04000240);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
+const MMIO_POWCNT1: u32 = mmio!(0x04000304);
+const MMIO_SPU_CHANNEL_BASE: u32 = mmio!(0x04000400);
+const MMIO_SPU_CHANNEL_END: u32 = mmio!(0x040004fc);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
@@ -316,6 +320,14 @@ impl Arm7Memory {
             }
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv4),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv4) as u32,
+            MMIO_SPICNT => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.spi.read_spicnt() as u32;
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= (self.system.spi.read_spidata() as u32) << 16
+                }
+            }
             MMIO_IME => return self.system.arm7.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm7.get_irq().read_ie(),
             MMIO_IRF => return self.system.arm7.get_irq().read_irf(),
@@ -327,6 +339,7 @@ impl Arm7Memory {
                     val |= (self.system.read_wramcnt() as u32) << 8
                 }
             }
+            MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit read {:08x}",
@@ -423,6 +436,14 @@ impl Arm7Memory {
                 }
             }
             MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv4, val),
+            MMIO_SPICNT => {
+                if MASK & 0xffff != 0 {
+                    self.system.spi.write_spicnt(val as _, MASK & 0xffff);
+                }
+                if MASK & 0xffff0000 != 0 {
+                    self.system.spi.write_spidata((val >> 16) as _)
+                }
+            }
             MMIO_IME => return self.system.arm7.get_irq().write_ime(val, MASK),
             MMIO_IE => return self.system.arm7.get_irq().write_ie(val, MASK),
             MMIO_IRF => return self.system.arm7.get_irq().write_irf(val, MASK),
@@ -434,6 +455,8 @@ impl Arm7Memory {
                     todo!()
                 }
             }
+            MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
+            MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => warn!("spu channel"),
             MMIO_SOUNDBIAS => warn!("todo: sound bias"),
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit write {:08x} = {:08x}",

@@ -4,3 +4,4 @@ pub mod input;
 pub mod ipc;
 pub mod irq;
 pub mod math_unit;
+pub mod spi;
