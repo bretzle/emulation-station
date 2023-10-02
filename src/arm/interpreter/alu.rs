@@ -3,7 +3,7 @@ use crate::arm::cpu::Cpu;
 use crate::arm::interpreter::instructions::ShiftType;
 use crate::arm::memory::Memory;
 
-impl<M: Memory, C: Coprocessor> Cpu<M, C> {
+impl Cpu {
     pub fn alu_mov(&mut self, op2: u32, set_flags: bool) -> u32 {
         if set_flags {
             self.set_nz(op2);

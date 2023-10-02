@@ -1,3 +1,4 @@
+use std::any::Any;
 use crate::arm::cpu::Arch;
 use log::debug;
 use crate::core::arm7::Arm7;
@@ -134,8 +135,8 @@ impl System {
 
     fn write_wramcnt(&mut self, val: u8) {
         self.wramcnt = val & 0x3;
-        self.arm7.get_memory().update_wram_mapping();
-        self.arm9.get_memory().update_wram_mapping();
+        self.arm7.update_wram_mapping();
+        self.arm9.update_wram_mapping();
     }
 
     pub const fn read_wramcnt(&self) -> u8 {

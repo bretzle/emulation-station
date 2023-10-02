@@ -1,12 +1,13 @@
 use log::{debug, error};
 
-use crate::arm::coprocessor::Coprocessor;
+use crate::arm::coprocessor::{Coprocessor, Tcm};
 use crate::bitfield;
 use crate::core::arm9::memory::Arm9Memory;
 use crate::util::Shared;
 
 pub struct Arm9Coprocessor {
-    memory: Shared<Arm9Memory>,
+    itcm_cnt: Shared<Tcm>,
+    dtcm_cnt: Shared<Tcm>,
 
     control: Control,
     dtcm: [u8; 0x8000],
@@ -16,9 +17,10 @@ pub struct Arm9Coprocessor {
 }
 
 impl Arm9Coprocessor {
-    pub fn new(memory: &Shared<Arm9Memory>) -> Self {
+    pub fn new(itcm: &Shared<Tcm>, dtcm: &Shared<Tcm>) -> Self {
         Self {
-            memory: memory.clone(),
+            itcm_cnt: itcm.clone(),
+            dtcm_cnt: dtcm.clone(),
             control: Control(0),
             dtcm: [0; 0x8000],
             itcm: [0; 0x4000],
@@ -46,12 +48,12 @@ impl Coprocessor for Arm9Coprocessor {
         match (cn << 16) | (cm << 8) | cp {
             0x010000 => {
                 self.control.0 = val;
-                self.memory.dtcm.enable_reads =
+                self.dtcm_cnt.enable_reads =
                     self.control.dtcm_enable() && !self.control.dtcm_write_only();
-                self.memory.dtcm.enable_writes = self.control.dtcm_enable();
-                self.memory.itcm.enable_reads =
+                self.dtcm_cnt.enable_writes = self.control.dtcm_enable();
+                self.itcm_cnt.enable_reads =
                     self.control.itcm_enable() && !self.control.itcm_write_only();
-                self.memory.itcm.enable_writes = self.control.itcm_enable();
+                self.itcm_cnt.enable_writes = self.control.itcm_enable();
             }
             0x020000 => {}
             0x020001 => {}
@@ -78,20 +80,20 @@ impl Coprocessor for Arm9Coprocessor {
             0x070e02 => {}
             0x090100 => {
                 self.dtcm_control.0 = val;
-                self.memory.dtcm.base = self.dtcm_control.base() << 12;
-                self.memory.dtcm.limit = self.memory.dtcm.base + (512 << self.dtcm_control.size());
+                self.dtcm_cnt.base = self.dtcm_control.base() << 12;
+                self.dtcm_cnt.limit = self.dtcm_cnt.base + (512 << self.dtcm_control.size());
                 debug!(
                     "ARM9Coprocessor: dtcm base = {:x}, limit = {:x}",
-                    self.memory.dtcm.base, self.memory.dtcm.limit
+                    self.dtcm_cnt.base, self.dtcm_cnt.limit
                 )
             }
             0x090101 => {
                 self.itcm_control.0 = val;
-                self.memory.itcm.base = 0;
-                self.memory.itcm.limit = 512 << self.itcm_control.size();
+                self.itcm_cnt.base = 0;
+                self.itcm_cnt.limit = 512 << self.itcm_control.size();
                 debug!(
                     "ARM9Coprocessor: itcm base = {:x}, limit = {:x}",
-                    self.memory.itcm.base, self.memory.itcm.limit
+                    self.itcm_cnt.base, self.itcm_cnt.limit
                 )
             }
             _ => error!("ARM9Coprocessor: handle register write c{cn}, c{cm}, c{cp} = {val:08x}"),

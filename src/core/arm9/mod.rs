@@ -1,3 +1,4 @@
+use std::any::Any;
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
@@ -13,14 +14,14 @@ mod memory;
 
 pub struct Arm9 {
     system: Shared<System>,
-    irq: Irq<Arm9Memory, Arm9Coprocessor>,
-    pub cpu: Shared<Cpu<Arm9Memory, Arm9Coprocessor>>,
+    irq: Irq,
+    pub cpu: Shared<Cpu>,
 }
 
 impl Arm9 {
     pub fn new(system: &Shared<System>) -> Self {
-        let memory = Shared::new(Arm9Memory::new(system));
-        let coprocessor = Arm9Coprocessor::new(&memory);
+        let memory = Box::new(Arm9Memory::new(system));
+        let coprocessor = Box::new(Arm9Coprocessor::new(&memory.itcm, &memory.dtcm));
         let cpu = Shared::new(Cpu::new(Arch::ARMv5, memory, coprocessor));
         Self {
             system: system.clone(),
@@ -71,15 +72,19 @@ impl Arm9 {
         self.cpu.set_gpr(PC, entrypoint);
     }
 
-    pub fn get_memory(&mut self) -> &mut Arm9Memory {
-        &mut self.cpu.memory
+    pub fn get_memory(&mut self) -> &mut dyn Memory {
+        &mut *self.cpu.memory
     }
 
-    pub fn get_coprocessor(&mut self) -> &mut Arm9Coprocessor {
-        &mut self.cpu.coprocessor
+    pub fn get_coprocessor(&mut self) -> &mut dyn Coprocessor {
+        &mut *self.cpu.coprocessor
     }
 
-    pub fn get_irq(&mut self) -> &mut Irq<Arm9Memory, Arm9Coprocessor> {
+    pub fn get_irq(&mut self) -> &mut Irq {
         &mut self.irq
+    }
+
+    pub fn update_wram_mapping(&mut self) {
+        self.cpu.memory.as_any().downcast_mut::<Arm9Memory>().unwrap().update_wram_mapping()
     }
 }

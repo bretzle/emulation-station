@@ -26,17 +26,17 @@ impl Not for Arch {
     }
 }
 
-pub struct Cpu<M, C> {
+pub struct Cpu {
     // common stuff
     pub state: State,
     pub arch: Arch,
-    pub memory: Shared<M>,
-    pub coprocessor: C,
+    pub memory: Box<dyn Memory>,
+    pub coprocessor: Box<dyn Coprocessor>,
     irq: bool,
     halted: bool,
 
     // interpreter stuff
-    decoder: Decoder<M, C>,
+    decoder: Decoder,
     pipeline: [u32; 2],
     pub instruction: u32,
     condition_table: [[bool; 16]; 16],
@@ -44,8 +44,8 @@ pub struct Cpu<M, C> {
     // todo
 }
 
-impl<M: Memory, C: Coprocessor> Cpu<M, C> {
-    pub fn new(arch: Arch, memory: Shared<M>, coprocessor: C) -> Self {
+impl Cpu {
+    pub fn new(arch: Arch, memory: Box<dyn Memory>, coprocessor: Box<dyn Coprocessor>) -> Self {
         Self {
             state: State::default(),
             arch,

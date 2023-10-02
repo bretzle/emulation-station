@@ -5,7 +5,7 @@ use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Mode, GPR};
 
 #[allow(dead_code)]
-impl<M: Memory, C: Coprocessor> Cpu<M, C> {
+impl Cpu {
     pub(in crate::arm) fn thumb_alu_immediate(&mut self, instruction: u32) {
         let ThumbALUImmediate { imm, rd, opcode } = ThumbALUImmediate::decode(instruction);
         match opcode {

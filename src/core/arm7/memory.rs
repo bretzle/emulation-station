@@ -1,3 +1,4 @@
+use std::any::Any;
 use log::warn;
 
 use crate::arm::cpu::Arch;
@@ -26,32 +27,6 @@ impl Arm7Memory {
             read_table: PageTable::new(),
             write_table: PageTable::new(),
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.arm7_wram.fill(0);
-        self.rcnt = 0;
-        self.postflg = 0;
-
-        unsafe {
-            let ptr = self.bios.as_mut_ptr();
-            self.map(
-                0x00000000,
-                0x01000000,
-                ptr,
-                0x3fff,
-                RegionAttributes::Read,
-            );
-            let ptr = self.system.main_memory.as_mut_ptr();
-            self.map(
-                0x02000000,
-                0x03000000,
-                ptr,
-                0x3fffff,
-                RegionAttributes::ReadWrite,
-            );
-        }
-        self.update_wram_mapping();
     }
 
     pub fn update_wram_mapping(&mut self) {
@@ -134,6 +109,32 @@ impl Arm7Memory {
 }
 
 impl Memory for Arm7Memory {
+    fn reset(&mut self) {
+        self.arm7_wram.fill(0);
+        self.rcnt = 0;
+        self.postflg = 0;
+
+        unsafe {
+            let ptr = self.bios.as_mut_ptr();
+            self.map(
+                0x00000000,
+                0x01000000,
+                ptr,
+                0x3fff,
+                RegionAttributes::Read,
+            );
+            let ptr = self.system.main_memory.as_mut_ptr();
+            self.map(
+                0x02000000,
+                0x03000000,
+                ptr,
+                0x3fffff,
+                RegionAttributes::ReadWrite,
+            );
+        }
+        self.update_wram_mapping();
+    }
+
     fn read_byte(&mut self, addr: u32) -> u8 {
         let ptr = self.read_table.get_pointer::<u8>(addr);
         if !ptr.is_null() {
@@ -223,6 +224,10 @@ impl Memory for Arm7Memory {
             0x08 | 0x09 => {}
             _ => warn!("ARM7Memory: handle 32-bit write {addr:08x} = {val:08x}")
         }
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

@@ -1,3 +1,4 @@
+use std::any::Any;
 use log::{error, warn};
 
 use crate::arm::coprocessor::Tcm;
@@ -20,8 +21,8 @@ pub struct Arm9Memory {
     dtcm_data: Box<[u8]>,
     itcm_data: Box<[u8]>,
 
-    pub itcm: Tcm,
-    pub dtcm: Tcm,
+    pub itcm: Shared<Tcm>,
+    pub dtcm: Shared<Tcm>,
 
     read_table: PageTable<14>,
     write_table: PageTable<14>,
@@ -36,43 +37,12 @@ impl Arm9Memory {
             dtcm_data: vec![0; 0x4000].into_boxed_slice(),
             itcm_data: vec![0; 0x8000].into_boxed_slice(),
 
-            itcm: Tcm::default(),
-            dtcm: Tcm::default(),
+            itcm: Shared::default(),
+            dtcm: Shared::default(),
 
             read_table: PageTable::new(),
             write_table: PageTable::new(),
         }
-    }
-
-    pub fn reset(&mut self) {
-        self.postflg = 0;
-        self.dtcm_data.fill(0);
-        self.itcm_data.fill(0);
-
-        self.dtcm.data = self.dtcm_data.as_mut_ptr();
-        self.itcm.data = self.itcm_data.as_mut_ptr();
-        self.dtcm.mask = self.dtcm_data.len() as u32 - 1;
-        self.itcm.mask = self.itcm_data.len() as u32 - 1;
-
-        unsafe {
-            let ptr = self.bios.as_mut_ptr();
-            self.map(
-                0xffff0000,
-                0xffff8000,
-                ptr,
-                0x7fff,
-                RegionAttributes::Read,
-            );
-            let ptr = self.system.main_memory.as_mut_ptr();
-            self.map(
-                0x02000000,
-                0x03000000,
-                ptr,
-                0x3fffff,
-                RegionAttributes::ReadWrite,
-            );
-        }
-        self.update_wram_mapping();
     }
 
     pub fn update_wram_mapping(&mut self) {
@@ -241,6 +211,37 @@ fn get_access_offset(mut mask: u32) -> u32 {
 }
 
 impl Memory for Arm9Memory {
+    fn reset(&mut self) {
+        self.postflg = 0;
+        self.dtcm_data.fill(0);
+        self.itcm_data.fill(0);
+
+        self.dtcm.data = self.dtcm_data.as_mut_ptr();
+        self.itcm.data = self.itcm_data.as_mut_ptr();
+        self.dtcm.mask = self.dtcm_data.len() as u32 - 1;
+        self.itcm.mask = self.itcm_data.len() as u32 - 1;
+
+        unsafe {
+            let ptr = self.bios.as_mut_ptr();
+            self.map(
+                0xffff0000,
+                0xffff8000,
+                ptr,
+                0x7fff,
+                RegionAttributes::Read,
+            );
+            let ptr = self.system.main_memory.as_mut_ptr();
+            self.map(
+                0x02000000,
+                0x03000000,
+                ptr,
+                0x3fffff,
+                RegionAttributes::ReadWrite,
+            );
+        }
+        self.update_wram_mapping();
+    }
+
     fn read_byte(&mut self, addr: u32) -> u8 {
         if let Some(val) = self.tcm_read::<u8>(addr) {
             return val;
@@ -339,6 +340,10 @@ impl Memory for Arm9Memory {
             0x08 | 0x09 => {} // ignore gpa cart writes
             _ => warn!("ARM9Memory: handle 32-bit write {addr:08x} = {val:08x}"),
         }
+    }
+
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 

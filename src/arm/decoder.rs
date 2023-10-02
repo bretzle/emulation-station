@@ -2,22 +2,22 @@ use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::Cpu;
 use crate::arm::memory::Memory;
 
-type Handler<M, C> = fn(&mut Cpu<M, C>, u32);
+type Handler = fn(&mut Cpu, u32);
 
-struct Info<M, C> {
-    handler: Handler<M, C>,
+struct Info {
+    handler: Handler,
     mask: u32,
     value: u32,
 }
 
-pub struct Decoder<M, C> {
-    arm_lut: [Handler<M, C>; 4096],
-    thumb_lut: [Handler<M, C>; 1024],
-    arm_list: Vec<Info<M, C>>,
-    thumb_list: Vec<Info<M, C>>,
+pub struct Decoder {
+    arm_lut: [Handler; 4096],
+    thumb_lut: [Handler; 1024],
+    arm_list: Vec<Info>,
+    thumb_list: Vec<Info>,
 }
 
-impl<M: Memory, C: Coprocessor> Decoder<M, C> {
+impl Decoder {
     pub fn new() -> Self {
         let mut decoder = Self {
             arm_lut: [Cpu::illegal_instruction; 4096],
@@ -99,7 +99,7 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
         decoder
     }
 
-    fn register_arm(&mut self, pattern: &str, handler: Handler<M, C>) {
+    fn register_arm(&mut self, pattern: &str, handler: Handler) {
         let mask = mask::<32>(pattern);
         let value = value::<32>(pattern);
         self.arm_list.push(Info {
@@ -109,7 +109,7 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
         });
     }
 
-    fn register_thumb(&mut self, pattern: &str, handler: Handler<M, C>) {
+    fn register_thumb(&mut self, pattern: &str, handler: Handler) {
         let mask = mask::<16>(pattern);
         let value = value::<16>(pattern);
         self.thumb_list.push(Info {
@@ -120,13 +120,13 @@ impl<M: Memory, C: Coprocessor> Decoder<M, C> {
     }
 
     #[inline]
-    pub fn decode_arm(&self, instruction: u32) -> Handler<M, C> {
+    pub fn decode_arm(&self, instruction: u32) -> Handler {
         let idx = ((instruction >> 16) & 0xff0) | ((instruction >> 4) & 0xf);
         self.arm_lut[idx as usize]
     }
 
     #[inline]
-    pub fn decode_thumb(&self, instruction: u32) -> Handler<M, C> {
+    pub fn decode_thumb(&self, instruction: u32) -> Handler {
         let idx = instruction >> 6;
         self.thumb_lut[idx as usize]
     }

@@ -1,3 +1,5 @@
+use std::any::Any;
+
 pub enum Bus {
     Code,
     Data,
@@ -12,6 +14,8 @@ pub enum RegionAttributes {
 }
 
 pub trait Memory {
+    fn reset(&mut self);
+
     fn read_byte(&mut self, addr: u32) -> u8;
     fn read_half(&mut self, addr: u32) -> u16;
     fn read_word(&mut self, addr: u32) -> u32;
@@ -19,6 +23,8 @@ pub trait Memory {
     fn write_byte(&mut self, addr: u32, val: u8);
     fn write_half(&mut self, addr: u32, val: u16);
     fn write_word(&mut self, addr: u32, val: u32);
+
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 // type L2Entry = *mut u8;

@@ -27,15 +27,15 @@ pub enum IrqSource {
 }
 
 // todo: replace cpu ref with Rc<Cell<bool>> or something
-pub struct Irq<M, C> {
-    cpu: Shared<Cpu<M, C>>,
+pub struct Irq {
+    cpu: Shared<Cpu>,
     ime: bool,
     ie: u32,
     irf: u32,
 }
 
-impl<M: Memory, C: Coprocessor> Irq<M, C> {
-    pub fn new(cpu: &Shared<Cpu<M, C>>) -> Self {
+impl Irq {
+    pub fn new(cpu: &Shared<Cpu>) -> Self {
         Self {
             cpu: cpu.clone(),
             ime: false,

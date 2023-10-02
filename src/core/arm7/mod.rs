@@ -12,14 +12,14 @@ mod coprocessor;
 
 pub struct Arm7 {
     system: Shared<System>,
-    irq: Irq<Arm7Memory, Arm7Coprocessor>,
-    pub cpu: Shared<Cpu<Arm7Memory, Arm7Coprocessor>>
+    irq: Irq,
+    pub cpu: Shared<Cpu>
 }
 
 impl Arm7 {
     pub fn new(system: &Shared<System>) -> Self {
-        let memory = Shared::new(Arm7Memory::new(system));
-        let coprocessor = Arm7Coprocessor;
+        let memory = Box::new(Arm7Memory::new(system));
+        let coprocessor = Box::new(Arm7Coprocessor);
         let cpu = Shared::new(Cpu::new(Arch::ARMv4, memory, coprocessor));
         Self {
             system: system.clone(),
@@ -55,10 +55,14 @@ impl Arm7 {
     }
 
 
-    pub fn get_memory(&mut self) -> &mut Arm7Memory {
-        &mut self.cpu.memory
+    pub fn get_memory(&mut self) -> &mut dyn Memory {
+        &mut *self.cpu.memory
     }
-    pub fn get_irq(&mut self) -> &mut Irq<Arm7Memory, Arm7Coprocessor> {
+    pub fn get_irq(&mut self) -> &mut Irq {
         &mut self.irq
+    }
+
+    pub fn update_wram_mapping(&mut self) {
+        self.cpu.memory.as_any().downcast_mut::<Arm7Memory>().unwrap().update_wram_mapping()
     }
 }

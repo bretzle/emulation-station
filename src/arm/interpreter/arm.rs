@@ -8,7 +8,7 @@ use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Mode, GPR};
 
 #[allow(dead_code)]
-impl<M: Memory, C: Coprocessor> Cpu<M, C> {
+impl Cpu {
     pub(in crate::arm) fn arm_branch_link_maybe_exchange(&mut self, instruction: u32) {
         if (instruction & 0xf0000000) != 0xf0000000 {
             self.arm_branch_link(instruction);
