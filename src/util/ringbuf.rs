@@ -35,7 +35,7 @@ impl<T: Copy, const N: usize> RingBuffer<T, N> {
         data
     }
 
-    pub fn front(&self) -> T {
+    pub const fn front(&self) -> T {
         self.buffer[self.head]
     }
 

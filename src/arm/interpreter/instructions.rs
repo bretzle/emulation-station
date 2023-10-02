@@ -1,19 +1,7 @@
 use std::mem::transmute;
 
 use crate::arm::state::{Condition, GPR};
-
-const fn bit<const N: usize>(x: u32) -> bool {
-    ((x >> N) & 1) != 0
-}
-
-const fn get_field<const START: usize, const SIZE: usize>(val: u32) -> u32 {
-    (val >> START) & !(u32::MAX << SIZE)
-}
-
-pub const fn sign_extend<const N: usize>(val: u32) -> u32 {
-    let shift = (32 - N) as u32;
-    (val as i32).wrapping_shl(shift).wrapping_shr(shift) as u32
-}
+use crate::util::{bit, get_field, sign_extend};
 
 #[repr(u8)]
 pub enum ShiftType {

@@ -25,6 +25,7 @@ fn main() {
         .add_filter_ignore_str("wgpu")
         .add_filter_ignore_str("naga")
         .set_time_level(LevelFilter::Off)
+        .set_target_level(LevelFilter::Off)
         .build();
     CombinedLogger::init(vec![
         TermLogger::new(LevelFilter::Trace, config.clone(), TerminalMode::Mixed, ColorChoice::Auto),

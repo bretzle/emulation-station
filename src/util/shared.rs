@@ -14,7 +14,9 @@ pub struct Shared<T> {
 
 impl<T> Shared<T> {
     pub fn new(val: T) -> Self {
-        Self::new_cyclic(|_| val)
+        Self {
+            ptr: Box::leak(Box::new(SharedBox { inner: val, count: 1 })).into(),
+        }
     }
 
     pub fn new_cyclic<F: FnOnce(&Self) -> T>(f: F) -> Self {

@@ -1,6 +1,7 @@
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::interpreter::instructions::*;
 use crate::arm::state::{Bank, Mode, GPR};
+use crate::util::sign_extend;
 
 #[allow(dead_code)]
 impl Cpu {

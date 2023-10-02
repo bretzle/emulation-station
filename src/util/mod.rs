@@ -1,6 +1,10 @@
+mod bits;
+mod page_table;
 mod ringbuf;
 mod shared;
 
+pub use bits::*;
+pub use page_table::*;
 pub use ringbuf::*;
 pub use shared::*;
 
