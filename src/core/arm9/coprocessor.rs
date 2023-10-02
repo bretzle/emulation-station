@@ -2,7 +2,6 @@ use log::{debug, error};
 
 use crate::arm::coprocessor::{Coprocessor, Tcm};
 use crate::bitfield;
-use crate::core::arm9::memory::Arm9Memory;
 use crate::util::Shared;
 
 pub struct Arm9Coprocessor {
@@ -48,11 +47,9 @@ impl Coprocessor for Arm9Coprocessor {
         match (cn << 16) | (cm << 8) | cp {
             0x010000 => {
                 self.control.0 = val;
-                self.dtcm_cnt.enable_reads =
-                    self.control.dtcm_enable() && !self.control.dtcm_write_only();
+                self.dtcm_cnt.enable_reads = self.control.dtcm_enable() && !self.control.dtcm_write_only();
                 self.dtcm_cnt.enable_writes = self.control.dtcm_enable();
-                self.itcm_cnt.enable_reads =
-                    self.control.itcm_enable() && !self.control.itcm_write_only();
+                self.itcm_cnt.enable_reads = self.control.itcm_enable() && !self.control.itcm_write_only();
                 self.itcm_cnt.enable_writes = self.control.itcm_enable();
             }
             0x020000 => {}

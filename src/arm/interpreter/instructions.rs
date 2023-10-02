@@ -43,11 +43,7 @@ pub struct ArmSingleDataTransfer {
 
 pub enum ArmSingleDataTransferRhs {
     Imm(u32),
-    Reg {
-        rm: GPR,
-        shift_type: ShiftType,
-        amount: u32,
-    },
+    Reg { rm: GPR, shift_type: ShiftType, amount: u32 },
 }
 
 impl ArmSingleDataTransfer {
@@ -182,11 +178,7 @@ impl ArmDataProcessing {
                 ArmDataProcessingAmount::Rs(get_field::<8, 4>(instruction).into())
             };
 
-            ArmDataProcessingRhs::Reg {
-                rm,
-                shift_type,
-                amount,
-            }
+            ArmDataProcessingRhs::Reg { rm, shift_type, amount }
         };
 
         Self {
@@ -210,11 +202,7 @@ impl ArmBranchLink {
     pub fn decode(instruction: u32) -> Self {
         Self {
             link: bit::<24>(instruction),
-            offset: if instruction & (1 << 23) != 0 {
-                0xFC000000
-            } else {
-                0
-            } | (get_field::<0, 24>(instruction) << 2),
+            offset: if instruction & (1 << 23) != 0 { 0xFC000000 } else { 0 } | (get_field::<0, 24>(instruction) << 2),
             condition: get_field::<28, 4>(instruction).into(),
         }
     }
@@ -490,8 +478,7 @@ pub struct ArmBranchLinkExchange {
 impl ArmBranchLinkExchange {
     pub fn decode(instruction: u32) -> Self {
         Self {
-            offset: (sign_extend::<24>(get_field::<0, 24>(instruction)) << 2)
-                | ((bit::<24>(instruction) as u32) << 1),
+            offset: (sign_extend::<24>(get_field::<0, 24>(instruction)) << 2) | ((bit::<24>(instruction) as u32) << 1),
         }
     }
 }

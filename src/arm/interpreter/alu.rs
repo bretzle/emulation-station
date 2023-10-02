@@ -1,7 +1,5 @@
-use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::Cpu;
 use crate::arm::interpreter::instructions::ShiftType;
-use crate::arm::memory::Memory;
 
 impl Cpu {
     pub fn alu_mov(&mut self, op2: u32, set_flags: bool) -> u32 {
@@ -63,9 +61,7 @@ impl Cpu {
         let result = op1 - op2 - op3;
         if set_flags {
             self.set_nz(result);
-            self.state
-                .cpsr
-                .set_c((op1 as u64) >= ((op2 as u64) + (op3 as u64)));
+            self.state.cpsr.set_c((op1 as u64) >= ((op2 as u64) + (op3 as u64)));
             self.state.cpsr.set_v(sub_overflow(op1, op2, result));
         }
         result
@@ -205,13 +201,7 @@ impl Cpu {
         result
     }
 
-    pub fn barrel_shifter(
-        &self,
-        val: u32,
-        shift_type: ShiftType,
-        amount: u32,
-        imm: bool,
-    ) -> (u32, Option<bool>) {
+    pub fn barrel_shifter(&self, val: u32, shift_type: ShiftType, amount: u32, imm: bool) -> (u32, Option<bool>) {
         match shift_type {
             ShiftType::LSL => arithmetic::lsl(val, amount),
             ShiftType::LSR => arithmetic::lsr(val, amount, imm),
@@ -269,10 +259,7 @@ mod arithmetic {
             return ((val as i32 >> 31) as u32, Some(val >> 31 != 0));
         }
 
-        (
-            (val as i32 >> amount) as u32,
-            Some((val >> (amount - 1)) & 1 != 0),
-        )
+        ((val as i32 >> amount) as u32, Some((val >> (amount - 1)) & 1 != 0))
     }
 
     pub const fn rrx(val: u32, carry: bool) -> (u32, Option<bool>) {

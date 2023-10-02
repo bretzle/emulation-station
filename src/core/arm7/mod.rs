@@ -1,19 +1,19 @@
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
-use crate::arm::state::{GPR, Mode, StatusReg};
+use crate::arm::state::{Mode, StatusReg, GPR};
 use crate::core::arm7::coprocessor::Arm7Coprocessor;
 use crate::core::arm7::memory::Arm7Memory;
 use crate::core::hardware::irq::Irq;
 use crate::core::System;
 use crate::util::Shared;
 
-mod memory;
 mod coprocessor;
+mod memory;
 
 pub struct Arm7 {
     system: Shared<System>,
     pub irq: Shared<Irq>,
-    pub cpu: Shared<Cpu>
+    pub cpu: Shared<Cpu>,
 }
 
 impl Arm7 {
@@ -53,7 +53,6 @@ impl Arm7 {
         self.cpu.set_gpr(LR, entrypoint);
         self.cpu.set_gpr(PC, entrypoint);
     }
-
 
     pub fn get_memory(&mut self) -> &mut dyn Memory {
         &mut *self.cpu.memory

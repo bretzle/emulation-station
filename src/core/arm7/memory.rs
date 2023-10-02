@@ -1,5 +1,5 @@
-use std::any::Any;
 use log::warn;
+use std::any::Any;
 
 use crate::arm::cpu::Arch;
 use crate::arm::memory::{Memory, PageTable, RegionAttributes};
@@ -32,42 +32,34 @@ impl Arm7Memory {
     pub fn update_wram_mapping(&mut self) {
         unsafe {
             match self.system.wramcnt {
-                0x0 => {
-                    self.map(
-                        0x03000000,
-                        0x03800000,
-                        self.arm7_wram.as_ptr() as _,
-                        0xffff,
-                        RegionAttributes::ReadWrite
-                    )
-                }
-                0x1 => {
-                    self.map(
-                        0x03000000,
-                        0x03800000,
-                        self.system.shared_wram.as_ptr() as _,
-                        0x3fff,
-                        RegionAttributes::ReadWrite
-                    )
-                }
-                0x2 => {
-                    self.map(
-                        0x03000000,
-                        0x03800000,
-                        self.system.shared_wram.as_ptr().add(0x4000) as _,
-                        0x3fff,
-                        RegionAttributes::ReadWrite
-                    )
-                }
-                0x3 => {
-                    self.map(
-                        0x03000000,
-                        0x03800000,
-                        self.system.shared_wram.as_ptr() as _,
-                        0x7fff,
-                        RegionAttributes::ReadWrite
-                    )
-                }
+                0x0 => self.map(
+                    0x03000000,
+                    0x03800000,
+                    self.arm7_wram.as_ptr() as _,
+                    0xffff,
+                    RegionAttributes::ReadWrite,
+                ),
+                0x1 => self.map(
+                    0x03000000,
+                    0x03800000,
+                    self.system.shared_wram.as_ptr() as _,
+                    0x3fff,
+                    RegionAttributes::ReadWrite,
+                ),
+                0x2 => self.map(
+                    0x03000000,
+                    0x03800000,
+                    self.system.shared_wram.as_ptr().add(0x4000) as _,
+                    0x3fff,
+                    RegionAttributes::ReadWrite,
+                ),
+                0x3 => self.map(
+                    0x03000000,
+                    0x03800000,
+                    self.system.shared_wram.as_ptr() as _,
+                    0x7fff,
+                    RegionAttributes::ReadWrite,
+                ),
                 _ => unreachable!(),
             }
 
@@ -81,14 +73,7 @@ impl Arm7Memory {
         }
     }
 
-    unsafe fn map(
-        &mut self,
-        base: u32,
-        end: u32,
-        ptr: *mut u8,
-        mask: u32,
-        attributes: RegionAttributes,
-    ) {
+    unsafe fn map(&mut self, base: u32, end: u32, ptr: *mut u8, mask: u32, attributes: RegionAttributes) {
         match attributes {
             RegionAttributes::Read => {
                 self.read_table.map(base, end, ptr, mask);
@@ -116,21 +101,9 @@ impl Memory for Arm7Memory {
 
         unsafe {
             let ptr = self.bios.as_mut_ptr();
-            self.map(
-                0x00000000,
-                0x01000000,
-                ptr,
-                0x3fff,
-                RegionAttributes::Read,
-            );
+            self.map(0x00000000, 0x01000000, ptr, 0x3fff, RegionAttributes::Read);
             let ptr = self.system.main_memory.as_mut_ptr();
-            self.map(
-                0x02000000,
-                0x03000000,
-                ptr,
-                0x3fffff,
-                RegionAttributes::ReadWrite,
-            );
+            self.map(0x02000000, 0x03000000, ptr, 0x3fffff, RegionAttributes::ReadWrite);
         }
         self.update_wram_mapping();
     }
@@ -138,7 +111,7 @@ impl Memory for Arm7Memory {
     fn read_byte(&mut self, addr: u32) -> u8 {
         let ptr = self.read_table.get_pointer::<u8>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::read(ptr.cast()) };
+            return unsafe { std::ptr::read(ptr) };
         }
 
         match addr >> 24 {
@@ -155,7 +128,7 @@ impl Memory for Arm7Memory {
     fn read_half(&mut self, addr: u32) -> u16 {
         let ptr = self.read_table.get_pointer::<u16>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::read(ptr.cast()) };
+            return unsafe { std::ptr::read(ptr) };
         }
 
         match addr >> 24 {
@@ -172,7 +145,7 @@ impl Memory for Arm7Memory {
     fn read_word(&mut self, addr: u32) -> u32 {
         let ptr = self.read_table.get_pointer::<u32>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::read(ptr.cast()) };
+            return unsafe { std::ptr::read(ptr) };
         }
 
         match addr >> 24 {
@@ -189,40 +162,40 @@ impl Memory for Arm7Memory {
     fn write_byte(&mut self, addr: u32, val: u8) {
         let ptr = self.write_table.get_pointer::<u8>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::write(ptr as _, val) }
+            return unsafe { std::ptr::write(ptr as _, val) };
         }
 
         match addr >> 24 {
             0x04 => self.mmio_write_byte(addr, val),
             0x06 => todo!(),
-            _ => warn!("ARM7Memory: handle 8-bit write {addr:08x} = {val:02x}")
+            _ => warn!("ARM7Memory: handle 8-bit write {addr:08x} = {val:02x}"),
         }
     }
 
     fn write_half(&mut self, addr: u32, val: u16) {
         let ptr = self.write_table.get_pointer::<u16>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::write(ptr as _, val) }
+            return unsafe { std::ptr::write(ptr as _, val) };
         }
 
         match addr >> 24 {
             0x04 => self.mmio_write_half(addr, val),
             0x06 => todo!(),
-            _ => warn!("ARM7Memory: handle 16-bit write {addr:08x} = {val:04x}")
+            _ => warn!("ARM7Memory: handle 16-bit write {addr:08x} = {val:04x}"),
         }
     }
 
     fn write_word(&mut self, addr: u32, val: u32) {
         let ptr = self.write_table.get_pointer::<u32>(addr);
         if !ptr.is_null() {
-            return unsafe { std::ptr::write(ptr as _, val) }
+            return unsafe { std::ptr::write(ptr as _, val) };
         }
 
         match addr >> 24 {
             0x04 => self.mmio_write_word(addr, val),
             0x06 => todo!(),
             0x08 | 0x09 => {}
-            _ => warn!("ARM7Memory: handle 32-bit write {addr:08x} = {val:08x}")
+            _ => warn!("ARM7Memory: handle 32-bit write {addr:08x} = {val:08x}"),
         }
     }
 
@@ -264,7 +237,6 @@ const MMIO_SPU_CHANNEL_BASE: u32 = mmio!(0x04000400);
 const MMIO_SPU_CHANNEL_END: u32 = mmio!(0x040004fc);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
-
 
 fn get_access_size(mut mask: u32) -> u32 {
     let mut size = 0;
@@ -435,9 +407,7 @@ impl Arm7Memory {
             }
             MMIO_IPCFIFOCNT => {
                 if MASK & 0xffff != 0 {
-                    self.system
-                        .ipc
-                        .write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _);
+                    self.system.ipc.write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _);
                 }
             }
             MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv4, val),

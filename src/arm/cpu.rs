@@ -1,5 +1,4 @@
 use std::ops::Not;
-use std::sync::Arc;
 
 use log::warn;
 
@@ -7,7 +6,6 @@ use crate::arm::coprocessor::Coprocessor;
 use crate::arm::decoder::Decoder;
 use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
-use crate::util::Shared;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Arch {

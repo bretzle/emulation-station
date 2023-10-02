@@ -1,10 +1,8 @@
 use log::{error, warn};
 
-use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::interpreter::alu::{add_overflow, sub_overflow};
 use crate::arm::interpreter::instructions::*;
-use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Mode, GPR};
 
 #[allow(dead_code)]
@@ -103,8 +101,7 @@ impl Cpu {
 
         if byte {
             data = self.memory.read_byte(addr) as u32;
-            self.memory
-                .write_byte(addr, self.state.gpr[rm as usize] as u8);
+            self.memory.write_byte(addr, self.state.gpr[rm as usize] as u8);
         } else {
             data = self.read_word_rotate(addr);
             self.memory.write_word(addr, self.state.gpr[rm as usize]);
@@ -206,8 +203,7 @@ impl Cpu {
         };
 
         if accumulate {
-            result += ((self.state.gpr[rdhi as usize] as i64) << 32)
-                | (self.state.gpr[rdlo as usize] as i64)
+            result += ((self.state.gpr[rdhi as usize] as i64) << 32) | (self.state.gpr[rdlo as usize] as i64)
         }
 
         if set_flags {
@@ -257,30 +253,26 @@ impl Cpu {
         match (half, sign) {
             (true, true) => {
                 if load {
-                    self.state.gpr[rd as usize] =
-                        sign_extend::<16>(self.memory.read_half(addr) as _);
+                    self.state.gpr[rd as usize] = sign_extend::<16>(self.memory.read_half(addr) as _);
                 } else if self.arch == Arch::ARMv5 {
                     if rd as usize & 1 != 0 {
                         error!("Interpreter: undefined strd exception")
                     }
 
                     self.memory.write_word(addr, self.state.gpr[rd as usize]);
-                    self.memory
-                        .write_word(addr + 4, self.state.gpr[rd as usize + 1]);
+                    self.memory.write_word(addr + 4, self.state.gpr[rd as usize + 1]);
                 }
             }
             (true, _) => {
                 if load {
                     self.state.gpr[rd as usize] = self.memory.read_half(addr) as u32;
                 } else {
-                    self.memory
-                        .write_half(addr, self.state.gpr[rd as usize] as u16);
+                    self.memory.write_half(addr, self.state.gpr[rd as usize] as u16);
                 }
             }
             (_, true) => {
                 if load {
-                    self.state.gpr[rd as usize] =
-                        sign_extend::<8>(self.memory.read_byte(addr) as u32);
+                    self.state.gpr[rd as usize] = sign_extend::<8>(self.memory.read_byte(addr) as u32);
                 } else if self.arch == Arch::ARMv5 {
                     if rd as usize & 0x1 != 0 {
                         error!("Interpreter: undefined ldrd exception")
@@ -410,7 +402,7 @@ impl Cpu {
         let user_switch_mode = psr && (!load || !r15_in_rlist);
 
         for i in first..16 {
-            if !(rlist & (1 << i) != 0) {
+            if rlist & (1 << i) == 0 {
                 continue;
             }
 
@@ -420,7 +412,7 @@ impl Cpu {
 
             if load {
                 let val = self.memory.read_word(addr);
-                if user_switch_mode && i != 15 && i >= if self.state.cpsr.mode() == Mode::Fiq {8}else{13} {
+                if user_switch_mode && i != 15 && i >= if self.state.cpsr.mode() == Mode::Fiq { 8 } else { 13 } {
                     self.state.gpr_banked[Bank::USR as usize][i - 8] = val;
                 } else {
                     self.state.gpr[i] = val;
@@ -437,11 +429,11 @@ impl Cpu {
         if writeback {
             if load {
                 if self.arch == Arch::ARMv5 {
-                    if (rlist == (1 << rn as u16)) || !((rlist >> rn as u16) == 1) {
+                    if (rlist == (1 << rn as u16)) || (rlist >> rn as u16) != 1 {
                         self.state.gpr[rn as usize] = new_base;
                     }
                 } else {
-                    if !(rlist & (1 << rn as u16) != 0) {
+                    if rlist & (1 << rn as u16) == 0 {
                         self.state.gpr[rn as usize] = new_base;
                     }
                 }
@@ -484,13 +476,8 @@ impl Cpu {
 
         let mut op2 = match rhs {
             ArmSingleDataTransferRhs::Imm(imm) => imm,
-            ArmSingleDataTransferRhs::Reg {
-                rm,
-                shift_type,
-                amount,
-            } => {
-                let (result, _carry) =
-                    self.barrel_shifter(self.state.gpr[rm as usize], shift_type, amount, true);
+            ArmSingleDataTransferRhs::Reg { rm, shift_type, amount } => {
+                let (result, _carry) = self.barrel_shifter(self.state.gpr[rm as usize], shift_type, amount, true);
                 result
             }
         };
@@ -513,8 +500,7 @@ impl Cpu {
             }
         } else {
             if byte {
-                self.memory
-                    .write_byte(addr, self.state.gpr[rd as usize] as u8)
+                self.memory.write_byte(addr, self.state.gpr[rd as usize] as u8)
             } else {
                 self.memory.write_word(addr, self.state.gpr[rd as usize])
             }
@@ -564,11 +550,7 @@ impl Cpu {
                     self.state.cpsr.set_c(op2 >> 31 != 0);
                 }
             }
-            ArmDataProcessingRhs::Reg {
-                rm,
-                shift_type,
-                amount,
-            } => {
+            ArmDataProcessingRhs::Reg { rm, shift_type, amount } => {
                 let mut amt = 0;
                 let mut src = self.state.gpr[rm as usize];
 
@@ -624,10 +606,7 @@ impl Cpu {
                 self.state.cpsr = spsr;
             }
 
-            if !matches!(
-                opcode,
-                Opcode::TST | Opcode::TEQ | Opcode::CMP | Opcode::CMN
-            ) {
+            if !matches!(opcode, Opcode::TST | Opcode::TEQ | Opcode::CMP | Opcode::CMN) {
                 if self.state.cpsr.thumb() {
                     self.thumb_flush_pipeline();
                 } else {
@@ -646,9 +625,7 @@ impl Cpu {
         if self.arch == Arch::ARMv4 && opcode.cp == 14 {
             warn!("Interpreter: mrc cp14 on arm7");
             return;
-        } else if (self.arch == Arch::ARMv4 && opcode.cp == 15)
-            || (self.arch == Arch::ARMv5 && opcode.cp == 14)
-        {
+        } else if (self.arch == Arch::ARMv4 && opcode.cp == 15) || (self.arch == Arch::ARMv5 && opcode.cp == 14) {
             self.undefined_exception();
             return;
         }
@@ -658,16 +635,10 @@ impl Cpu {
         }
 
         if opcode.load {
-            self.state.gpr[opcode.rd as usize] =
-                self.coprocessor
-                    .read(opcode.crn as _, opcode.crm as _, opcode.cp as _);
+            self.state.gpr[opcode.rd as usize] = self.coprocessor.read(opcode.crn as _, opcode.crm as _, opcode.cp as _);
         } else {
-            self.coprocessor.write(
-                opcode.crn as _,
-                opcode.crm as _,
-                opcode.cp as _,
-                self.state.gpr[opcode.rd as usize],
-            );
+            self.coprocessor
+                .write(opcode.crn as _, opcode.crm as _, opcode.cp as _, self.state.gpr[opcode.rd as usize]);
         }
 
         self.state.gpr[15] += 4;
@@ -688,16 +659,8 @@ impl Cpu {
             return;
         }
 
-        let ArmSignedMultiplyAccumulateLong {
-            rm,
-            rs,
-            rn,
-            rd,
-            x,
-            y,
-        } = ArmSignedMultiplyAccumulateLong::decode(instruction);
-        let rdhilo = (((self.state.gpr[rd as usize] as u64) << 32)
-            | (self.state.gpr[rn as usize] as u64)) as i64;
+        let ArmSignedMultiplyAccumulateLong { rm, rs, rn, rd, x, y } = ArmSignedMultiplyAccumulateLong::decode(instruction);
+        let rdhilo = (((self.state.gpr[rd as usize] as u64) << 32) | (self.state.gpr[rn as usize] as u64)) as i64;
 
         let lhs = if x {
             (self.state.gpr[rm as usize] >> 16) as i16 as i64
@@ -731,11 +694,9 @@ impl Cpu {
             y,
         } = ArmSignedMultiplyWord::decode(instruction);
         let result = if y {
-            (((self.state.gpr[rm as usize] as i32) * ((self.state.gpr[rs as usize] >> 16) as i32))
-                >> 16) as u32
+            (((self.state.gpr[rm as usize] as i32) * ((self.state.gpr[rs as usize] >> 16) as i32)) >> 16) as u32
         } else {
-            (((self.state.gpr[rm as usize] as i32) * (self.state.gpr[rs as usize] as i16 as i32))
-                >> 16) as u32
+            (((self.state.gpr[rm as usize] as i32) * (self.state.gpr[rs as usize] as i16 as i32)) >> 16) as u32
         };
 
         if accumulate {

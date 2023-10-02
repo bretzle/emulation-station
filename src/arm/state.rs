@@ -168,9 +168,7 @@ impl State {
 
     #[inline]
     pub fn spsr_mut(&mut self) -> &mut StatusReg {
-        self.spsr_banked
-            .get_mut(self.spsr)
-            .unwrap_or(&mut self.cpsr)
+        self.spsr_banked.get_mut(self.spsr).unwrap_or(&mut self.cpsr)
     }
 
     pub fn spsr_at(&mut self, bank: Bank) -> &mut StatusReg {

@@ -82,7 +82,7 @@ impl Input {
     }
 
     pub fn touch_down(&self) -> bool {
-        !(self.extkeyin & (1 << 6) != 0)
+        self.extkeyin & (1 << 6) == 0
     }
 
     pub fn get_point(&self) -> Point {

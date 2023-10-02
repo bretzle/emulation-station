@@ -68,10 +68,7 @@ impl Scheduler {
 
     pub fn add_event(&mut self, delay: u64, info: &Rc<EventInfo>) {
         let time = self.current_time + delay;
-        let event = Event {
-            time,
-            info: info.clone(),
-        };
+        let event = Event { time, info: info.clone() };
         let index = self.calc_event_index(&event);
         self.events.insert(index, event);
     }
@@ -95,16 +92,12 @@ impl Scheduler {
     }
 
     pub fn get_event_time(&self) -> u64 {
-        if self.events.len() == 0 {
-            panic!()
-        }
+        assert!(!self.events.is_empty());
         self.events.get(0).map(|e| e.time).unwrap_or(u64::MAX)
     }
 
     fn calc_event_index(&self, event: &Event) -> usize {
-        match self.events.binary_search_by(|other| {
-            other.time.cmp(&event.time)
-        }) {
+        match self.events.binary_search_by(|other| other.time.cmp(&event.time)) {
             Ok(idx) => idx,
             Err(idx) => idx,
         }

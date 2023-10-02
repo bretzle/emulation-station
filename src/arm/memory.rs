@@ -51,12 +51,11 @@ impl<const N: usize> PageTable<N> {
 
     pub fn new() -> Self {
         Self {
-            inner: vec![vec![0 as _; Self::L2_SIZE].into_boxed_slice(); Self::L1_SIZE]
-                .into_boxed_slice(),
+            inner: vec![vec![0 as _; Self::L2_SIZE].into_boxed_slice(); Self::L1_SIZE].into_boxed_slice(),
         }
     }
 
-    pub fn get_pointer<T>(&self, addr: u32) -> *mut u8 {
+    pub fn get_pointer<T>(&self, addr: u32) -> *mut T {
         let l1_entry = &self.inner[Self::get_l1_index(addr)];
         let l2_entry = l1_entry[Self::get_l2_index(addr)];
 
@@ -65,7 +64,7 @@ impl<const N: usize> PageTable<N> {
         }
 
         let offset = addr & Self::PAGE_MASK;
-        unsafe { l2_entry.add(offset as usize) }
+        unsafe { l2_entry.add(offset as usize).cast() }
     }
 
     pub unsafe fn map(&mut self, base: u32, end: u32, ptr: *mut u8, mask: u32) {

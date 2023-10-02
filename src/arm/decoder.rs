@@ -1,6 +1,4 @@
-use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::Cpu;
-use crate::arm::memory::Memory;
 
 type Handler = fn(&mut Cpu, u32);
 
@@ -48,9 +46,7 @@ impl Decoder {
         decoder.register_arm("00010xx01xx0", Cpu::arm_signed_multiply);
         decoder.register_arm("000100100111", Cpu::arm_breakpoint);
 
-        decoder
-            .arm_list
-            .sort_by(|a, b| a.mask.count_ones().cmp(&b.mask.count_ones()));
+        decoder.arm_list.sort_by(|a, b| a.mask.count_ones().cmp(&b.mask.count_ones()));
 
         for i in 0..decoder.arm_lut.len() as u32 {
             for info in &decoder.arm_list {
@@ -84,9 +80,7 @@ impl Decoder {
         decoder.register_thumb("1010xxxxxx", Cpu::thumb_add_sp_pc);
         decoder.register_thumb("10110000xx", Cpu::thumb_adjust_stack_pointer);
 
-        decoder
-            .thumb_list
-            .sort_by(|a, b| a.mask.count_ones().cmp(&b.mask.count_ones()));
+        decoder.thumb_list.sort_by(|a, b| a.mask.count_ones().cmp(&b.mask.count_ones()));
 
         for i in 0..decoder.thumb_lut.len() as u32 {
             for info in &decoder.thumb_list {
@@ -102,21 +96,13 @@ impl Decoder {
     fn register_arm(&mut self, pattern: &str, handler: Handler) {
         let mask = mask::<32>(pattern);
         let value = value::<32>(pattern);
-        self.arm_list.push(Info {
-            handler,
-            mask,
-            value,
-        });
+        self.arm_list.push(Info { handler, mask, value });
     }
 
     fn register_thumb(&mut self, pattern: &str, handler: Handler) {
         let mask = mask::<16>(pattern);
         let value = value::<16>(pattern);
-        self.thumb_list.push(Info {
-            handler,
-            mask,
-            value,
-        });
+        self.thumb_list.push(Info { handler, mask, value });
     }
 
     #[inline]

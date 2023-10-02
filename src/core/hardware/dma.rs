@@ -1,15 +1,12 @@
+use std::rc::Rc;
+
 use crate::arm::cpu::Arch;
 use crate::bitfield;
 use crate::core::scheduler::EventInfo;
 use crate::core::System;
 use crate::util::Shared;
-use std::rc::Rc;
-use crate::arm::memory::Memory;
 
-const ADJUST_LUT: [[i32; 4]; 2] = [
-    [2, -2, 0, 2],
-    [4, -4, 0, 4]
-];
+const ADJUST_LUT: [[i32; 4]; 2] = [[2, -2, 0, 2], [4, -4, 0, 4]];
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum DmaTiming {
@@ -118,7 +115,7 @@ impl Dma {
                 let mem = self.system.get_memory(self.arch);
                 let val = mem.read_word(channel.internal_source);
                 mem.write_word(channel.internal_destination, val);
-                
+
                 channel.internal_source += source_adjust as u32;
                 channel.internal_destination += dest_adjust as u32;
             }
@@ -127,7 +124,7 @@ impl Dma {
                 let mem = self.system.get_memory(self.arch);
                 let val = mem.read_half(channel.internal_source);
                 mem.write_half(channel.internal_destination, val);
-                
+
                 channel.internal_source += source_adjust as u32;
                 channel.internal_destination += dest_adjust as u32;
             }

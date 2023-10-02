@@ -44,9 +44,9 @@ impl FrameHelper {
         self.queue_reset = true;
     }
 
-    pub const fn get_fast_forward(&self) -> f64 {
-        self.fast_forward
-    }
+    // pub const fn get_fast_forward(&self) -> f64 {
+    //     self.fast_forward
+    // }
 
     pub fn set_fast_forward(&mut self, val: f64) {
         self.fast_forward = val;

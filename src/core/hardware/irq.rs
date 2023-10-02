@@ -1,7 +1,4 @@
-use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
-use crate::arm::memory::Memory;
-
 use crate::util::Shared;
 
 pub enum IrqSource {

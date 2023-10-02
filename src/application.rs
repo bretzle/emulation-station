@@ -1,12 +1,11 @@
 use std::hash::Hasher;
-use std::time::Instant;
 
-use gfx::{Bindings, QuadContext};
 use gfx::buffer::{BufferLayout, BufferSource, BufferType, BufferUsage};
 use gfx::glue::GlContext;
 use gfx::pipeline::{Pipeline, VertexAttribute, VertexFormat};
 use gfx::shader::ShaderSource;
 use gfx::texture::{FilterMode, TextureAccess, TextureFormat, TextureParams};
+use gfx::{Bindings, QuadContext};
 use winit::dpi::PhysicalSize;
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::EventLoop;
@@ -15,8 +14,8 @@ use winit::window::{Window, WindowBuilder};
 
 use crate::core::config::BootMode;
 use crate::core::hardware::input::InputEvent;
-use crate::core::System;
 use crate::core::video::Screen;
+use crate::core::System;
 use crate::framehelper::FrameHelper;
 use crate::util::Shared;
 
@@ -48,7 +47,11 @@ impl Application {
     pub fn new() -> Self {
         let event_loop = EventLoop::new();
 
-        let window = WindowBuilder::new().with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2)).with_resizable(false).build(&event_loop).unwrap();
+        let window = WindowBuilder::new()
+            .with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2))
+            .with_resizable(false)
+            .build(&event_loop)
+            .unwrap();
         let gl = unsafe { GlContext::create(Default::default(), &window).unwrap() };
         gl.make_current();
         gl.set_swap_interval(true);
@@ -63,32 +66,34 @@ impl Application {
             Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
             Vertex { pos: Vec2 { x: -1.0, y: 1.0 }, uv: Vec2 { x: 0., y: 0. } },
         ];
-        let vertex_buffer = ctx.new_buffer(
-            BufferType::VertexBuffer,
-            BufferUsage::Immutable,
-            BufferSource::slice(&vertices),
-        );
+        let vertex_buffer = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Immutable, BufferSource::slice(&vertices));
 
-        let screen = ctx.new_texture(TextureAccess::RenderTarget, None, TextureParams {
-            format: TextureFormat::RGBA8,
-            filter: FilterMode::Nearest,
-            width: 256,
-            height: 192 * 2,
-            ..Default::default()
-        });
+        let screen = ctx.new_texture(
+            TextureAccess::RenderTarget,
+            None,
+            TextureParams {
+                format: TextureFormat::RGBA8,
+                filter: FilterMode::Nearest,
+                width: 256,
+                height: 192 * 2,
+                ..Default::default()
+            },
+        );
 
         let bindings = Bindings {
             vertex_buffers: vec![vertex_buffer],
             images: vec![screen],
         };
 
-        let shader = ctx.new_shader(
-            ShaderSource {
-                vertex: shader::VERTEX,
-                fragment: shader::FRAGMENT,
-            },
-            shader::meta(),
-        ).unwrap();
+        let shader = ctx
+            .new_shader(
+                ShaderSource {
+                    vertex: shader::VERTEX,
+                    fragment: shader::FRAGMENT,
+                },
+                shader::meta(),
+            )
+            .unwrap();
 
         let pipeline = ctx.new_pipeline(
             &[BufferLayout::default()],
@@ -119,66 +124,62 @@ impl Application {
     }
 
     pub fn run(&mut self) {
-        let _ = self.event_loop.run_return(|event, _, flow| {
-            match event {
-                Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested => flow.set_exit(),
-                    WindowEvent::Resized(new) => {
-                        self.ctx.resize(new.width as _, new.height as _)
-                    }
-                    WindowEvent::KeyboardInput { input, .. } => {
-                        let pressed = matches!(input.state, ElementState::Pressed);
-                        if let Some(code) = input.virtual_keycode {
-                            match code {
-                                VirtualKeyCode::Minus => self.framehelper.set_fast_forward(1.0),
-                                VirtualKeyCode::Equals => self.framehelper.set_fast_forward(2.0),
-                                _ => {
-                                    if let Some(event) = Self::convert(code) {
-                                        self.system.input.handle_input(event, pressed);
-                                    }
+        let _ = self.event_loop.run_return(|event, _, flow| match event {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested => flow.set_exit(),
+                WindowEvent::Resized(new) => self.ctx.resize(new.width as _, new.height as _),
+                WindowEvent::KeyboardInput { input, .. } => {
+                    let pressed = matches!(input.state, ElementState::Pressed);
+                    if let Some(code) = input.virtual_keycode {
+                        match code {
+                            VirtualKeyCode::Minus => self.framehelper.set_fast_forward(1.0),
+                            VirtualKeyCode::Equals => self.framehelper.set_fast_forward(2.0),
+                            _ => {
+                                if let Some(event) = Self::convert(code) {
+                                    self.system.input.handle_input(event, pressed);
                                 }
                             }
                         }
                     }
-                    _ => {}
-                }
-                Event::MainEventsCleared => {
-                    self.framehelper.run(|| {
-                        self.system.run_frame();
-                    });
-                }
-                Event::RedrawEventsCleared => {
-                    let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
-                    let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
-
-                    let hash = {
-                        let mut h = seahash::SeaHasher::new();
-                        h.write(top);
-                        h.write(bot);
-                        h.finish()
-                    };
-
-                    if self.last != hash {
-                        self.last = hash;
-                        self.ctx.texture_update_part(self.bindings.images[0], 0, 0, 256, 192, top);
-                        self.ctx.texture_update_part(self.bindings.images[0], 0, 192, 256, 192, bot);
-
-                        self.ctx.begin_default_pass(Default::default());
-                        self.ctx.apply_pipeline(&self.pipeline);
-                        self.ctx.apply_bindings(&self.bindings);
-                        self.ctx.draw(0, 6, 1);
-                        self.ctx.end_render_pass();
-                        self.ctx.commit_frame();
-
-                        self.gl.swap_buffers();
-                    }
-
-                    if let Some((fps, ups)) = self.framehelper.inc().fps() {
-                        self.window.set_title(&format!("fps: {fps} ups: {ups}"))
-                    }
                 }
                 _ => {}
+            },
+            Event::MainEventsCleared => {
+                self.framehelper.run(|| {
+                    self.system.run_frame();
+                });
             }
+            Event::RedrawEventsCleared => {
+                let top = self.system.video_unit.fetch_framebuffer(Screen::Top);
+                let bot = self.system.video_unit.fetch_framebuffer(Screen::Bottom);
+
+                let hash = {
+                    let mut h = seahash::SeaHasher::new();
+                    h.write(top);
+                    h.write(bot);
+                    h.finish()
+                };
+
+                if self.last != hash {
+                    self.last = hash;
+                    self.ctx.texture_update_part(self.bindings.images[0], 0, 0, 256, 192, top);
+                    self.ctx.texture_update_part(self.bindings.images[0], 0, 192, 256, 192, bot);
+
+                    self.ctx.begin_default_pass(Default::default());
+                    self.ctx.apply_pipeline(&self.pipeline);
+                    self.ctx.apply_bindings(&self.bindings);
+                    self.ctx.draw(0, 6, 1);
+                    self.ctx.end_render_pass();
+                    self.ctx.commit_frame();
+
+                    self.gl.swap_buffers();
+                }
+
+                if let Some((fps, ups)) = self.framehelper.inc().fps() {
+                    self.window.set_title(&format!("fps: {fps} ups: {ups}"))
+                }
+            }
+            _ => {}
         });
     }
 

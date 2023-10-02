@@ -70,10 +70,7 @@ impl MathUnit {
         }
 
         let (numer, denom) = match self.divcnt & 0x3 {
-            0 => (
-                self.div_numer as u32 as i32 as i64,
-                self.div_denom as u32 as i32 as i64,
-            ),
+            0 => (self.div_numer as u32 as i32 as i64, self.div_denom as u32 as i32 as i64),
             1 => (self.div_numer as i64, self.div_denom as u32 as i32 as i64),
             2 => (self.div_numer as i64, self.div_denom as i64),
             _ => unreachable!(),

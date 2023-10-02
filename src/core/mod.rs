@@ -1,9 +1,8 @@
-use std::any::Any;
-use crate::arm::cpu::Arch;
 use log::debug;
+
+use crate::arm::cpu::Arch;
 use crate::arm::memory::Memory;
 use crate::core::arm7::Arm7;
-
 use crate::core::arm9::Arm9;
 use crate::core::config::{BootMode, Config};
 use crate::core::hardware::cartridge::Cartridge;

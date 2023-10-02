@@ -134,10 +134,7 @@ impl Ppu {
             framebuffer: Box::new([0; 256 * 192]),
             converted_framebuffer: Box::new([0; 256 * 192 * 4]),
             bg_layers: [[0; 256]; 4],
-            obj_buffer: std::array::from_fn(|_| Object {
-                priority: 0,
-                color: 0,
-            }),
+            obj_buffer: std::array::from_fn(|_| Object { priority: 0, color: 0 }),
             palette_ram: (),
             oam: (),
             bg: (),
@@ -157,8 +154,7 @@ impl Ppu {
     pub fn on_finish_frame(&mut self) {
         for i in 0..256 * 192 {
             let j = i * 4;
-            self.converted_framebuffer[j..j + 4]
-                .copy_from_slice(&rgb666_to_rgb888(self.framebuffer[i]));
+            self.converted_framebuffer[j..j + 4].copy_from_slice(&rgb666_to_rgb888(self.framebuffer[i]));
         }
     }
 

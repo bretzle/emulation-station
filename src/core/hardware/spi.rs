@@ -1,6 +1,5 @@
 use log::debug;
 
-use crate::arm::memory::Memory;
 use crate::bitfield;
 use crate::core::System;
 use crate::util::Shared;
@@ -89,21 +88,17 @@ impl Spi {
 
     pub fn direct_boot(&mut self) {
         for i in 0..0x70 {
-            self.system.arm9.get_memory().write_byte(
-                0x027ffc80 + i,
-                self.firmware[0x3ff00 + i as usize]
-            )
+            self.system
+                .arm9
+                .get_memory()
+                .write_byte(0x027ffc80 + i, self.firmware[0x3ff00 + i as usize])
         }
     }
 
     fn load_calibration_points(&mut self) {
         macro_rules! read {
             ($t:ty, $start:expr) => {
-                <$t>::from_le_bytes(
-                    self.firmware[$start..$start + std::mem::size_of::<$t>()]
-                        .try_into()
-                        .unwrap(),
-                )
+                <$t>::from_le_bytes(self.firmware[$start..$start + std::mem::size_of::<$t>()].try_into().unwrap())
             };
         }
 

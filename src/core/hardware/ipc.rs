@@ -1,8 +1,6 @@
-use log::info;
 use crate::arm::cpu::Arch;
 use crate::bitfield;
 use crate::core::hardware::irq::{Irq, IrqSource};
-use crate::core::System;
 use crate::util::RingBuffer;
 use crate::util::Shared;
 
@@ -126,17 +124,11 @@ impl Ipc {
             }
         }
 
-        if !send_fifo_empty_irq_old
-            && self.ipcfifocnt[tx].send_fifo_empty_irq()
-            && self.ipcfifocnt[tx].send_fifo_empty()
-        {
+        if !send_fifo_empty_irq_old && self.ipcfifocnt[tx].send_fifo_empty_irq() && self.ipcfifocnt[tx].send_fifo_empty() {
             self.irq[tx].raise(IrqSource::IPCSendEmpty);
         }
 
-        if !receive_fifo_empty_irq_old
-            && self.ipcfifocnt[tx].receive_fifo_empty_irq()
-            && self.ipcfifocnt[tx].receive_fifo_empty()
-        {
+        if !receive_fifo_empty_irq_old && self.ipcfifocnt[tx].receive_fifo_empty_irq() && self.ipcfifocnt[tx].receive_fifo_empty() {
             self.irq[tx].raise(IrqSource::IPCReceiveNonEmpty);
         }
 

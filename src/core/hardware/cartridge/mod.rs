@@ -1,4 +1,3 @@
-use crate::arm::memory::Memory;
 use crate::core::System;
 use crate::util::Shared;
 use log::debug;
@@ -30,26 +29,23 @@ impl Cartridge {
     pub fn direct_boot(&mut self) {
         // transfer the header + workaround for TinyFB
         for i in 0..0x170.min(self.file.len() as u32) {
-            self.system
-                .arm9
-                .get_memory()
-                .write_byte(0x027ffe00 + i, self.file[i as usize])
+            self.system.arm9.get_memory().write_byte(0x027ffe00 + i, self.file[i as usize])
         }
 
         // transfer the arm9 code
         for i in 0..self.header.arm9_size {
-            self.system.arm9.get_memory().write_byte(
-                self.header.arm9_ram_address + i,
-                self.file[(self.header.arm9_offset + i) as usize],
-            )
+            self.system
+                .arm9
+                .get_memory()
+                .write_byte(self.header.arm9_ram_address + i, self.file[(self.header.arm9_offset + i) as usize])
         }
 
         // transfer the arm7 code
         for i in 0..self.header.arm7_size {
-            self.system.arm7.get_memory().write_byte(
-                self.header.arm7_ram_address + i,
-                self.file[(self.header.arm7_offset + i) as usize]
-            )
+            self.system
+                .arm7
+                .get_memory()
+                .write_byte(self.header.arm7_ram_address + i, self.file[(self.header.arm7_offset + i) as usize])
         }
 
         debug!("Cartridge: cartridge data transferred into memory");
@@ -67,15 +63,15 @@ impl Cartridge {
 #[derive(Default, Debug)]
 struct Header {
     title: String,
-    arm9_offset: u32, // specifies from which offset in the rom data will be transferred to the arm9/arm7 bus
-    arm9_entrypoint: u32, // specifies where r15 (program counter) will be set to in memory
+    arm9_offset: u32,      // specifies from which offset in the rom data will be transferred to the arm9/arm7 bus
+    arm9_entrypoint: u32,  // specifies where r15 (program counter) will be set to in memory
     arm9_ram_address: u32, // specifies where in memory data from the cartridge will be transferred to
-    arm9_size: u32, // specifies the amount of bytes to be transferred from the cartridge to memory
+    arm9_size: u32,        // specifies the amount of bytes to be transferred from the cartridge to memory
 
-    arm7_offset: u32, // specifies from which offset in the rom data will be transferred to the arm9/arm7 bus
-    arm7_entrypoint: u32, // specifies where r15 (program counter) will be set to in memory
+    arm7_offset: u32,      // specifies from which offset in the rom data will be transferred to the arm9/arm7 bus
+    arm7_entrypoint: u32,  // specifies where r15 (program counter) will be set to in memory
     arm7_ram_address: u32, // specifies where in memory data from the cartridge will be transferred to
-    arm7_size: u32, // specifies the amount of bytes to be transferred from the cartridge to memory
+    arm7_size: u32,        // specifies the amount of bytes to be transferred from the cartridge to memory
 
     icon_title_offset: u32, // specifies the offset in the rom image to where the icon and title is
 
@@ -87,11 +83,7 @@ impl Header {
     fn parse(data: &[u8]) -> Self {
         macro_rules! read {
             ($t:ty, $start:literal) => {
-                <$t>::from_le_bytes(
-                    data[$start..$start + std::mem::size_of::<$t>()]
-                        .try_into()
-                        .unwrap(),
-                )
+                <$t>::from_le_bytes(data[$start..$start + std::mem::size_of::<$t>()].try_into().unwrap())
             };
         }
 

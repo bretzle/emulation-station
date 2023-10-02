@@ -1,17 +1,23 @@
+#![allow(
+    clippy::upper_case_acronyms,
+    clippy::identity_op,
+    unused,
+    clippy::collapsible_else_if,
+    clippy::collapsible_if
+)]
+
 use std::fs::File;
 
 use log::LevelFilter;
-use simplelog::{
-    ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger,
-};
+use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger};
 
 use crate::application::Application;
 
 mod application;
 mod arm;
 mod core;
-mod util;
 mod framehelper;
+mod util;
 
 fn main() {
     color_backtrace::install();
@@ -21,12 +27,7 @@ fn main() {
         .set_time_level(LevelFilter::Off)
         .build();
     CombinedLogger::init(vec![
-        TermLogger::new(
-            LevelFilter::Trace,
-            config.clone(),
-            TerminalMode::Mixed,
-            ColorChoice::Auto,
-        ),
+        TermLogger::new(LevelFilter::Trace, config.clone(), TerminalMode::Mixed, ColorChoice::Auto),
         WriteLogger::new(LevelFilter::Trace, config, File::create("out.log").unwrap()),
     ])
     .unwrap();
