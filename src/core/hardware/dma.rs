@@ -115,35 +115,19 @@ impl Dma {
 
         if channel.control.transfer_words() {
             for _ in 0..channel.internal_length {
-                match self.arch {
-                    Arch::ARMv4 => {
-                        let mem = self.system.arm7.get_memory();
-                        let val = mem.read_word(channel.internal_source);
-                        mem.write_word(channel.internal_destination, val);
-                    }
-                    Arch::ARMv5 => {
-                        let mem = self.system.arm9.get_memory();
-                        let val = mem.read_word(channel.internal_source);
-                        mem.write_word(channel.internal_destination, val);
-                    }
-                }
+                let mem = self.system.get_memory(self.arch);
+                let val = mem.read_word(channel.internal_source);
+                mem.write_word(channel.internal_destination, val);
+                
                 channel.internal_source += source_adjust as u32;
                 channel.internal_destination += dest_adjust as u32;
             }
         } else {
             for _ in 0..channel.internal_length {
-                match self.arch {
-                    Arch::ARMv4 => {
-                        let mem = self.system.arm7.get_memory();
-                        let val = mem.read_half(channel.internal_source);
-                        mem.write_half(channel.internal_destination, val);
-                    }
-                    Arch::ARMv5 => {
-                        let mem = self.system.arm9.get_memory();
-                        let val = mem.read_half(channel.internal_source);
-                        mem.write_half(channel.internal_destination, val);
-                    }
-                }
+                let mem = self.system.get_memory(self.arch);
+                let val = mem.read_half(channel.internal_source);
+                mem.write_half(channel.internal_destination, val);
+                
                 channel.internal_source += source_adjust as u32;
                 channel.internal_destination += dest_adjust as u32;
             }

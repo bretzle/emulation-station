@@ -1,6 +1,7 @@
 use std::any::Any;
 use crate::arm::cpu::Arch;
 use log::debug;
+use crate::arm::memory::Memory;
 use crate::core::arm7::Arm7;
 
 use crate::core::arm9::Arm9;
@@ -53,22 +54,26 @@ pub struct System {
 
 impl System {
     pub fn new() -> Shared<Self> {
-        Shared::new_cyclic(|system| Self {
-            arm7: Arm7::new(system),
-            arm9: Arm9::new(system),
-            cartridge: Cartridge::new(system),
-            video_unit: VideoUnit::new(system),
-            input: Input::new(),
-            dma7: Dma::new(Arch::ARMv4, system),
-            dma9: Dma::new(Arch::ARMv5, system),
-            ipc: Ipc::new(system),
-            math_unit: MathUnit::default(),
-            spi: Spi::new(system),
-            scheduler: Scheduler::new(system),
-            main_memory: vec![0; 0x400000].into_boxed_slice(),
-            shared_wram: vec![0; 0x8000].into_boxed_slice(),
-            wramcnt: 0,
-            config: Config::default(),
+        Shared::new_cyclic(|system| {
+            let arm7 = Arm7::new(system);
+            let arm9 = Arm9::new(system);
+            Self {
+                cartridge: Cartridge::new(system),
+                video_unit: VideoUnit::new(system),
+                input: Input::new(),
+                dma7: Dma::new(Arch::ARMv4, system),
+                dma9: Dma::new(Arch::ARMv5, system),
+                ipc: Ipc::new(&arm7.irq, &arm9.irq),
+                math_unit: MathUnit::default(),
+                spi: Spi::new(system),
+                scheduler: Scheduler::new(system),
+                main_memory: vec![0; 0x400000].into_boxed_slice(),
+                shared_wram: vec![0; 0x8000].into_boxed_slice(),
+                wramcnt: 0,
+                config: Config::default(),
+                arm7,
+                arm9,
+            }
         })
     }
 
@@ -141,5 +146,12 @@ impl System {
 
     pub const fn read_wramcnt(&self) -> u8 {
         self.wramcnt
+    }
+
+    pub fn get_memory(&mut self, arch: Arch) -> &mut dyn Memory {
+        match arch {
+            Arch::ARMv4 => self.arm7.get_memory(),
+            Arch::ARMv5 => self.arm9.get_memory(),
+        }
     }
 }

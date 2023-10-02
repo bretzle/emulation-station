@@ -1,7 +1,7 @@
 use log::info;
 use crate::arm::cpu::Arch;
 use crate::bitfield;
-use crate::core::hardware::irq::IrqSource;
+use crate::core::hardware::irq::{Irq, IrqSource};
 use crate::core::System;
 use crate::util::RingBuffer;
 use crate::util::Shared;
@@ -36,7 +36,7 @@ bitfield! {
 }
 
 pub struct Ipc {
-    system: Shared<System>,
+    irq: [Shared<Irq>; 2],
     ipcsync: [IpcSync; 2],
     ipcfifocnt: [IpcFifoCnt; 2],
     fifo: [RingBuffer<u32, 16>; 2],
@@ -44,9 +44,9 @@ pub struct Ipc {
 }
 
 impl Ipc {
-    pub fn new(system: &Shared<System>) -> Self {
+    pub fn new(irq7: &Shared<Irq>, irq9: &Shared<Irq>) -> Self {
         Self {
-            system: system.clone(),
+            irq: [irq7.clone(), irq9.clone()],
             ipcsync: Default::default(),
             ipcfifocnt: [IpcFifoCnt(0x101); 2],
             fifo: Default::default(),
@@ -79,12 +79,7 @@ impl Ipc {
                     self.ipcfifocnt[tx].set_receive_fifo_empty(true);
 
                     if self.ipcfifocnt[rx].send_fifo_empty_irq() {
-                        match arch {
-                            Arch::ARMv4 => {
-                                self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty)
-                            }
-                            Arch::ARMv5 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty)
-                        }
+                        self.irq[rx].raise(IrqSource::IPCSendEmpty)
                     }
                 } else if self.fifo[rx].len() == 15 {
                     self.ipcfifocnt[rx].set_send_fifo_full(false);
@@ -107,10 +102,7 @@ impl Ipc {
         self.ipcsync[rx].set_input(self.ipcsync[tx].output());
 
         if self.ipcsync[tx].send_irq() && self.ipcsync[rx].enable_irq() {
-            match arch {
-                Arch::ARMv4 => self.system.arm9.get_irq().raise(IrqSource::IPCSync),
-                Arch::ARMv5 => self.system.arm7.get_irq().raise(IrqSource::IPCSync),
-            }
+            self.irq[rx].raise(IrqSource::IPCSync);
         }
     }
     pub fn write_ipcfifocnt(&mut self, arch: Arch, val: u16, mut mask: u16) {
@@ -130,10 +122,7 @@ impl Ipc {
             self.ipcfifocnt[rx].set_receive_fifo_full(false);
 
             if self.ipcfifocnt[tx].send_fifo_empty_irq() {
-                match arch {
-                    Arch::ARMv4 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty),
-                    Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
-                }
+                self.irq[tx].raise(IrqSource::IPCSendEmpty);
             }
         }
 
@@ -141,28 +130,14 @@ impl Ipc {
             && self.ipcfifocnt[tx].send_fifo_empty_irq()
             && self.ipcfifocnt[tx].send_fifo_empty()
         {
-            match arch {
-                Arch::ARMv4 => self.system.arm7.get_irq().raise(IrqSource::IPCSendEmpty),
-                Arch::ARMv5 => self.system.arm9.get_irq().raise(IrqSource::IPCSendEmpty),
-            }
+            self.irq[tx].raise(IrqSource::IPCSendEmpty);
         }
 
         if !receive_fifo_empty_irq_old
             && self.ipcfifocnt[tx].receive_fifo_empty_irq()
             && self.ipcfifocnt[tx].receive_fifo_empty()
         {
-            match arch {
-                Arch::ARMv4 => self
-                    .system
-                    .arm7
-                    .get_irq()
-                    .raise(IrqSource::IPCReceiveNonEmpty),
-                Arch::ARMv5 => self
-                    .system
-                    .arm9
-                    .get_irq()
-                    .raise(IrqSource::IPCReceiveNonEmpty),
-            }
+            self.irq[tx].raise(IrqSource::IPCReceiveNonEmpty);
         }
 
         if val & (1 << 14) != 0 {
@@ -182,18 +157,7 @@ impl Ipc {
                     self.ipcfifocnt[rx].set_receive_fifo_empty(false);
 
                     if self.ipcfifocnt[rx].receive_fifo_empty_irq() {
-                        match arch {
-                            Arch::ARMv4 => self
-                                .system
-                                .arm9
-                                .get_irq()
-                                .raise(IrqSource::IPCReceiveNonEmpty),
-                            Arch::ARMv5 => self
-                                .system
-                                .arm7
-                                .get_irq()
-                                .raise(IrqSource::IPCReceiveNonEmpty),
-                        }
+                        self.irq[rx].raise(IrqSource::IPCReceiveNonEmpty);
                     }
                 } else if self.fifo[tx].len() == 16 {
                     self.ipcfifocnt[tx].set_send_fifo_full(true);

@@ -12,7 +12,7 @@ mod coprocessor;
 
 pub struct Arm7 {
     system: Shared<System>,
-    irq: Irq,
+    pub irq: Shared<Irq>,
     pub cpu: Shared<Cpu>
 }
 
@@ -23,7 +23,7 @@ impl Arm7 {
         let cpu = Shared::new(Cpu::new(Arch::ARMv4, memory, coprocessor));
         Self {
             system: system.clone(),
-            irq: Irq::new(&cpu),
+            irq: Shared::new(Irq::new(&cpu)),
             cpu,
         }
     }

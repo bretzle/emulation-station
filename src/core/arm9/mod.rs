@@ -14,7 +14,7 @@ mod memory;
 
 pub struct Arm9 {
     system: Shared<System>,
-    irq: Irq,
+    pub irq: Shared<Irq>,
     pub cpu: Shared<Cpu>,
 }
 
@@ -25,7 +25,7 @@ impl Arm9 {
         let cpu = Shared::new(Cpu::new(Arch::ARMv5, memory, coprocessor));
         Self {
             system: system.clone(),
-            irq: Irq::new(&cpu),
+            irq: Shared::new(Irq::new(&cpu)),
             cpu,
         }
     }
