@@ -158,6 +158,7 @@ impl Cpu {
     }
 
     pub fn thumb_flush_pipeline(&mut self) {
+        // debug_assert!(self.state.cpsr.thumb());
         self.state.gpr[15] &= !1;
         self.pipeline[0] = self.code_read_half(self.state.gpr[15]) as u32;
         self.pipeline[1] = self.code_read_half(self.state.gpr[15] + 2) as u32;
@@ -165,6 +166,7 @@ impl Cpu {
     }
 
     pub fn arm_flush_pipeline(&mut self) {
+        // debug_assert!(!self.state.cpsr.thumb());
         self.state.gpr[15] &= !3;
         self.pipeline[0] = self.code_read_word(self.state.gpr[15]);
         self.pipeline[1] = self.code_read_word(self.state.gpr[15] + 4);

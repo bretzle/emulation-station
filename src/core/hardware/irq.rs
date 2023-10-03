@@ -23,6 +23,18 @@ pub enum IrqSource {
     SPI = 23,
 }
 
+impl IrqSource {
+    pub const fn timer(id: usize) -> Self {
+        match id {
+            0 => Self::Timer0,
+            1 => Self::Timer1,
+            2 => Self::Timer2,
+            3 => Self::Timer3,
+            _ => unreachable!()
+        }
+    }
+}
+
 // todo: replace cpu ref with Rc<Cell<bool>> or something
 pub struct Irq {
     cpu: Shared<Cpu>,

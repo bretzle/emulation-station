@@ -24,6 +24,10 @@ const MMIO_DMA_LENGTH2: u32 = mmio!(0x040000d0);
 const MMIO_DMA_SOURCE3: u32 = mmio!(0x040000d4);
 const MMIO_DMA_DESTINATION3: u32 = mmio!(0x040000d8);
 const MMIO_DMA_LENGTH3: u32 = mmio!(0x040000dc);
+const MMIO_TIMER0: u32 = mmio!(0x04000100);
+const MMIO_TIMER1: u32 = mmio!(0x04000104);
+const MMIO_TIMER2: u32 = mmio!(0x04000108);
+const MMIO_TIMER3: u32 = mmio!(0x0400010c);
 const MMIO_RCNT: u32 = mmio!(0x04000134);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
@@ -230,6 +234,38 @@ impl MmioMemory for Arm7Memory {
                     val |= (self.system.dma9.read_control(3) as u32) << 16
                 }
             }
+            MMIO_TIMER0 => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.timer7.read_length(0) as u32
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= (self.system.timer7.read_control(0) as u32) << 16
+                }
+            }
+            MMIO_TIMER1 => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.timer7.read_length(1) as u32
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= (self.system.timer7.read_control(1) as u32) << 16
+                }
+            }
+            MMIO_TIMER2 => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.timer7.read_length(2) as u32
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= (self.system.timer7.read_control(2) as u32) << 16
+                }
+            }
+            MMIO_TIMER3 => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.timer7.read_length(3) as u32
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= (self.system.timer7.read_control(3) as u32) << 16
+                }
+            }
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv4),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv4) as u32,
             MMIO_SPICNT => {
@@ -304,6 +340,38 @@ impl MmioMemory for Arm7Memory {
                     self.system.dma7.write_control(3, val >> 16, MASK >> 16)
                 }
             }
+            MMIO_TIMER0 => {
+                if MASK & 0xffff != 0 {
+                    self.system.timer7.write_length(0, val, MASK)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    self.system.timer7.write_control(0, (val >> 16) as u16, MASK >> 16)
+                }
+            }
+            MMIO_TIMER1 => {
+                if MASK & 0xffff != 0 {
+                    self.system.timer7.write_length(1, val, MASK)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    self.system.timer7.write_control(1, (val >> 16) as u16, MASK >> 16)
+                }
+            }
+            MMIO_TIMER2 => {
+                if MASK & 0xffff != 0 {
+                    self.system.timer7.write_length(2, val, MASK)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    self.system.timer7.write_control(2, (val >> 16) as u16, MASK >> 16)
+                }
+            }
+            MMIO_TIMER3 => {
+                if MASK & 0xffff != 0 {
+                    self.system.timer7.write_length(3, val, MASK)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    self.system.timer7.write_control(3, (val >> 16) as u16, MASK >> 16)
+                }
+            }
             MMIO_RCNT => {
                 if MASK & 0xffff != 0 {
                     self.rcnt = val as _;
@@ -340,7 +408,7 @@ impl MmioMemory for Arm7Memory {
                 }
             }
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
-            MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => warn!("spu channel"),
+            MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDBIAS => warn!("todo: sound bias"),
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit write {:08x} = {:08x}",

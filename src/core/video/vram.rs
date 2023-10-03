@@ -141,6 +141,10 @@ impl Vram {
         self.vramstat
     }
 
+    pub fn read_vramcnt(&self, bank: VramBank) -> u8 {
+        self.vramcnt[bank as usize].0
+    }
+
     pub fn write_vramcnt(&mut self, bank: VramBank, mut val: u8) {
         let masks = [0x9b, 0x9b, 0x9f, 0x9f, 0x87, 0x9f, 0x9f, 0x83, 0x83];
         let index = bank as usize;

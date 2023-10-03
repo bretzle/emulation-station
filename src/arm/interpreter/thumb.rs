@@ -304,7 +304,7 @@ impl Cpu {
         self.state.spsr_at(Bank::SVC).0 = self.state.cpsr.0;
         self.switch_mode(Mode::Supervisor);
 
-        self.state.cpsr.set_thumb(true);
+        self.state.cpsr.set_thumb(false);
         self.state.cpsr.set_i(true);
         self.state.gpr[14] = self.state.gpr[15] - 2;
         self.state.gpr[15] = self.coprocessor.get_exception_base() + 0x08;

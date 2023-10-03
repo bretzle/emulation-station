@@ -1,11 +1,12 @@
 use crate::arm::cpu::Arch;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::bitfield;
 use crate::core::hardware::dma::DmaTiming;
 use crate::core::scheduler::EventInfo;
 use crate::core::video::ppu::Ppu;
-use crate::core::video::vram::Vram;
+use crate::core::video::vram::{Vram, VramBank};
 use crate::core::System;
 use crate::util::Shared;
 
@@ -234,5 +235,17 @@ impl VideoUnit {
 
     pub fn write_palette_ram<T>(&mut self, addr: u32, val: T) {
         unsafe { std::ptr::write(self.palette_ram.as_mut_ptr().add((addr & 0x7ff) as usize).cast(), val) }
+    }
+
+    pub fn write_dispstat(&mut self, arch: Arch, val: u32, mask: u32) {
+        let mask = mask & 0xffbf;
+        match arch {
+            Arch::ARMv4 => self.dispstat7.0 = (self.dispstat7.0 & !mask) | (val & mask),
+            Arch::ARMv5 => self.dispstat9.0 = (self.dispstat9.0 & !mask) | (val & mask),
+        }
+    }
+
+    pub fn write_vcount(&mut self, val: u16, mask: u16) {
+        self.vcount = (self.vcount & !mask) | (val & mask)
     }
 }
