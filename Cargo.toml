@@ -9,7 +9,7 @@ edition = "2021"
 color-backtrace = "0.6.0"
 log = "0.4.20"
 paste = "1"
-simplelog = "0.12.1"
+simplelog = { path = "../simplelog.rs" }
 gfx = { path = "../gfx" }
 winit = "0.28.6"
 seahash = "4.1.0"
