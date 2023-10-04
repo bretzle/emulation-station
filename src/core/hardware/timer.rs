@@ -52,16 +52,16 @@ impl Timers {
     pub fn reset(&mut self, arch: Arch) {
         match arch {
             Arch::ARMv4 => {
-                self.overflow_events[0] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer7.overflow(0));
-                self.overflow_events[1] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer7.overflow(1));
-                self.overflow_events[2] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer7.overflow(2));
-                self.overflow_events[3] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer7.overflow(3));
+                self.overflow_events[0] = self.system.scheduler.register_event("Timer Overflow 7.0", |system| system.timer7.overflow(0));
+                self.overflow_events[1] = self.system.scheduler.register_event("Timer Overflow 7.1", |system| system.timer7.overflow(1));
+                self.overflow_events[2] = self.system.scheduler.register_event("Timer Overflow 7.2", |system| system.timer7.overflow(2));
+                self.overflow_events[3] = self.system.scheduler.register_event("Timer Overflow 7.3", |system| system.timer7.overflow(3));
             }
             Arch::ARMv5 => {
-                self.overflow_events[0] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer9.overflow(0));
-                self.overflow_events[1] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer9.overflow(1));
-                self.overflow_events[2] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer9.overflow(2));
-                self.overflow_events[3] = self.system.scheduler.register_event("Timer Overflow", |system| system.timer9.overflow(3));
+                self.overflow_events[0] = self.system.scheduler.register_event("Timer Overflow 9.0", |system| system.timer9.overflow(0));
+                self.overflow_events[1] = self.system.scheduler.register_event("Timer Overflow 9.1", |system| system.timer9.overflow(1));
+                self.overflow_events[2] = self.system.scheduler.register_event("Timer Overflow 9.2", |system| system.timer9.overflow(2));
+                self.overflow_events[3] = self.system.scheduler.register_event("Timer Overflow 9.3", |system| system.timer9.overflow(3));
             }
         }
     }
@@ -122,10 +122,11 @@ impl Timers {
     }
 
     fn activate_channel(&mut self, id: usize) {
-        self.channels[id].active = true;
-        self.channels[id].activation_timestamp = self.system.scheduler.get_current_time();
+        let channel = &mut self.channels[id];
+        channel.active = true;
+        channel.activation_timestamp = self.system.scheduler.get_current_time();
 
-        let delay = (0x10000 - self.channels[id].counter as u64) << self.channels[id].shift;
+        let delay = (0x10000 - channel.counter as u64) << channel.shift;
         self.system.scheduler.add_event(delay, &self.overflow_events[id]);
     }
 

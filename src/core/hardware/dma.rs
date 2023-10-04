@@ -78,16 +78,16 @@ impl Dma {
 
         match self.arch {
             Arch::ARMv4 => {
-                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(0));
-                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(1));
-                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(2));
-                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma7.transfer(3));
+                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer 7.0", |system| system.dma7.transfer(0));
+                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer 7.1", |system| system.dma7.transfer(1));
+                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer 7.2", |system| system.dma7.transfer(2));
+                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer 7.3", |system| system.dma7.transfer(3));
             }
             Arch::ARMv5 => {
-                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(0));
-                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(1));
-                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(2));
-                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer", |system| system.dma9.transfer(3));
+                self.transfer_events[0] = self.system.scheduler.register_event("DMA Transfer 9.0", |system| system.dma9.transfer(0));
+                self.transfer_events[1] = self.system.scheduler.register_event("DMA Transfer 9.1", |system| system.dma9.transfer(1));
+                self.transfer_events[2] = self.system.scheduler.register_event("DMA Transfer 9.2", |system| system.dma9.transfer(2));
+                self.transfer_events[3] = self.system.scheduler.register_event("DMA Transfer 9.3", |system| system.dma9.transfer(3));
             }
         }
     }

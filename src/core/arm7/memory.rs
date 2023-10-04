@@ -1,4 +1,4 @@
-use log::warn;
+use log::{error, warn};
 use std::any::Any;
 
 use crate::arm::cpu::Arch;
@@ -12,6 +12,7 @@ macro_rules! mmio {
     };
 }
 
+const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
 const MMIO_DMA_SOURCE0: u32 = mmio!(0x040000b0);
 const MMIO_DMA_DESTINATION0: u32 = mmio!(0x040000b4);
 const MMIO_DMA_LENGTH0: u32 = mmio!(0x040000b8);
@@ -29,6 +30,7 @@ const MMIO_TIMER1: u32 = mmio!(0x04000104);
 const MMIO_TIMER2: u32 = mmio!(0x04000108);
 const MMIO_TIMER3: u32 = mmio!(0x0400010c);
 const MMIO_RCNT: u32 = mmio!(0x04000134);
+const MMIO_RTC: u32 = mmio!(0x04000138);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
@@ -41,6 +43,7 @@ const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
 const MMIO_SPU_CHANNEL_BASE: u32 = mmio!(0x04000400);
 const MMIO_SPU_CHANNEL_END: u32 = mmio!(0x040004fc);
+const MMIO_SOUNDCNT: u32 = mmio!(0x04000500);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
@@ -226,6 +229,14 @@ impl MmioMemory for Arm7Memory {
     fn mmio_read<const MASK: u32>(&mut self, addr: u32) -> u32 {
         let mut val = 0;
         match mmio!(addr) {
+            MMIO_DISPSTAT => {
+                if MASK & 0xffff != 0 {
+                    val |= self.system.video_unit.read_dispstat(Arch::ARMv4)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    val |= self.system.video_unit.read_vcount() << 16
+                }
+            }
             MMIO_DMA_LENGTH3 => {
                 if MASK & 0xffff != 0 {
                     val |= self.system.dma9.read_length(3)
@@ -266,6 +277,11 @@ impl MmioMemory for Arm7Memory {
                     val |= (self.system.timer7.read_control(3) as u32) << 16
                 }
             }
+            MMIO_RTC => {
+                if MASK & 0xff != 0 {
+                    val |= self.system.rtc.read_rtc() as u32
+                }
+            }
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv4),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv4) as u32,
             MMIO_SPICNT => {
@@ -289,6 +305,7 @@ impl MmioMemory for Arm7Memory {
             }
             MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
+            MMIO_SOUNDCNT => return self.system.spu.read_soundcnt() as u32,
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit read {:08x}",
                 get_access_size(MASK),
@@ -300,6 +317,14 @@ impl MmioMemory for Arm7Memory {
 
     fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
         match mmio!(addr) {
+            MMIO_DISPSTAT => {
+                if MASK & 0xffff != 0 {
+                    self.system.video_unit.write_dispstat(Arch::ARMv4, val, MASK)
+                }
+                if MASK & 0xffff0000 != 0 {
+                    error!("ARM7Memory: handle vcount write")
+                }
+            }
             MMIO_DMA_SOURCE0 => self.system.dma7.write_source(0, val, MASK),
             MMIO_DMA_DESTINATION0 => self.system.dma7.write_destination(0, val, MASK),
             MMIO_DMA_LENGTH0 => {
@@ -377,6 +402,11 @@ impl MmioMemory for Arm7Memory {
                     self.rcnt = val as _;
                 }
             }
+            MMIO_RTC => {
+                if MASK & 0xff != 0 {
+                    self.system.rtc.write_rtc(val as u8)
+                }
+            }
             MMIO_IPCSYNC => {
                 if MASK & 0xffff != 0 {
                     self.system.ipc.write_ipcsync(Arch::ARMv4, val, MASK)
@@ -404,11 +434,12 @@ impl MmioMemory for Arm7Memory {
                     self.write_postflg(val as u8)
                 }
                 if MASK & 0xff00 != 0 {
-                    todo!()
+                    self.system.write_haltcnt((val >> 8) as u8)
                 }
             }
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
             MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
+            MMIO_SOUNDCNT => self.system.spu.write_soundcnt(val as _, MASK as _),
             MMIO_SOUNDBIAS => warn!("todo: sound bias"),
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit write {:08x} = {:08x}",

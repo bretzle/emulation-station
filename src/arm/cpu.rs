@@ -1,8 +1,9 @@
 use std::ops::Not;
 
-use log::warn;
+use log::{trace, warn};
 
 use crate::arm::coprocessor::Coprocessor;
+use crate::arm::DEBUG;
 use crate::arm::decoder::Decoder;
 use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
@@ -89,12 +90,18 @@ impl Cpu {
             if self.state.cpsr.thumb() {
                 self.state.gpr[15] &= !0x1;
                 self.pipeline[1] = self.code_read_half(self.state.gpr[15]) as u32;
+                if unsafe {DEBUG} {
+                    trace!("{:?} (thumb) {:08x}: {:04x}", self.arch, self.state.gpr[15] - 4, self.instruction);
+                }
                 let handler = self.decoder.decode_thumb(self.instruction);
                 (handler)(self, self.instruction)
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
                 if self.evaluate_cond((self.instruction >> 28).into()) {
+                    if unsafe {DEBUG} {
+                        trace!("{:?} (arm) {:08x}: {:08x}", self.arch, self.state.gpr[15] - 8, self.instruction);
+                    }
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                 } else {

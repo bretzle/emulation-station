@@ -1,4 +1,4 @@
-use log::{error, warn};
+use log::{error, info, warn};
 use std::any::Any;
 
 use crate::arm::coprocessor::Tcm;
@@ -59,6 +59,7 @@ const MMIO_SQRT_PARAM: u32 = mmio!(0x040002b8);
 const MMIO_SQRT_PARAM2: u32 = mmio!(0x040002bc);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
+const MMIO_DISPCNT_B: u32 = mmio!(0x04001000);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
 pub struct Arm9Memory {
@@ -583,6 +584,7 @@ impl MmioMemory for Arm9Memory {
                 }
             }
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
+            MMIO_DISPCNT_B => self.system.video_unit.ppu_b.write_dispcnt(val, MASK),
             _ => warn!(
                 "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),

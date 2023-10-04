@@ -6,3 +6,5 @@ pub mod irq;
 pub mod math_unit;
 pub mod spi;
 pub mod timer;
+pub mod spu;
+pub mod rtc;

@@ -10,7 +10,9 @@ use crate::core::hardware::dma::Dma;
 use crate::core::hardware::input::Input;
 use crate::core::hardware::ipc::Ipc;
 use crate::core::hardware::math_unit::MathUnit;
+use crate::core::hardware::rtc::Rtc;
 use crate::core::hardware::spi::Spi;
+use crate::core::hardware::spu::Spu;
 use crate::core::hardware::timer::Timers;
 use crate::core::scheduler::Scheduler;
 use crate::core::video::VideoUnit;
@@ -29,12 +31,12 @@ pub struct System {
     cartridge: Cartridge,
     pub video_unit: VideoUnit,
     pub input: Input,
-    // spu: (),
+    spu: Spu,
     dma7: Dma,
     dma9: Dma,
     ipc: Ipc,
     math_unit: MathUnit,
-    // rtc: (),
+    rtc: Rtc,
     spi: Spi,
     timer7: Timers,
     timer9: Timers,
@@ -45,7 +47,7 @@ pub struct System {
     shared_wram: Box<[u8]>,
 
     wramcnt: u8,
-    // haltcnt: (),
+    haltcnt: u8,
     // exmemcnt: (),
     // exmemstat: (),
     // rcnt: (),
@@ -61,10 +63,12 @@ impl System {
                 cartridge: Cartridge::new(system),
                 video_unit: VideoUnit::new(system),
                 input: Input::new(),
+                spu: Spu::new(),
                 dma7: Dma::new(Arch::ARMv4, system),
                 dma9: Dma::new(Arch::ARMv5, system),
                 ipc: Ipc::new(&arm7.irq, &arm9.irq),
                 math_unit: MathUnit::default(),
+                rtc: Rtc::new(),
                 spi: Spi::new(system),
                 timer7: Timers::new(system, &arm7.irq),
                 timer9: Timers::new(system, &arm9.irq),
@@ -72,6 +76,7 @@ impl System {
                 main_memory: vec![0; 0x400000].into_boxed_slice(),
                 shared_wram: vec![0; 0x8000].into_boxed_slice(),
                 wramcnt: 0,
+                haltcnt: 0,
                 config: Config::default(),
                 arm7,
                 arm9,
@@ -89,6 +94,8 @@ impl System {
         self.spi.reset();
         self.timer7.reset(Arch::ARMv4);
         self.timer9.reset(Arch::ARMv5);
+        self.spu.reset();
+        self.rtc.reset();
         match self.config.boot_mode {
             BootMode::Firmware => todo!(),
             BootMode::Direct => self.direct_boot(),
@@ -109,7 +116,7 @@ impl System {
             let mut cycles = self.scheduler.get_event_time() - self.scheduler.get_current_time();
 
             if !self.arm9.is_halted() {
-                cycles = cycles.min(32);
+                cycles = cycles.min(16);
             }
 
             self.arm9.run(2 * cycles);
@@ -156,6 +163,15 @@ impl System {
         match arch {
             Arch::ARMv4 => self.arm7.get_memory(),
             Arch::ARMv5 => self.arm9.get_memory(),
+        }
+    }
+
+    pub fn write_haltcnt(&mut self, val: u8) {
+        self.haltcnt = val & 0xc0;
+        match (self.haltcnt >> 6) & 0x3 {
+            0x2 => self.arm7.cpu.update_halted(true),
+            0x3 => todo!(),
+            _ => todo!(),
         }
     }
 }
