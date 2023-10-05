@@ -25,6 +25,31 @@ macro_rules! handle {
 
 const MMIO_DISPCNT: u32 = mmio!(0x04000000);
 const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
+const MMIO_PPUA_BGCNT0: u32 = mmio!(0x04000008);
+const MMIO_PPUA_BGCNT1: u32 = mmio!(0x0400000c);
+const MMIO_PPUA_BGHOFS0: u32 = mmio!(0x04000010);
+const MMIO_PPUA_BGHOFS1: u32 = mmio!(0x04000014);
+const MMIO_PPUA_BGHOFS2: u32 = mmio!(0x04000018);
+const MMIO_PPUA_BGHOFS3: u32 = mmio!(0x0400001c);
+const MMIO_PPUA_BGPA0: u32 = mmio!(0x04000020);
+const MMIO_PPUA_BGPC0: u32 = mmio!(0x04000024);
+const MMIO_PPUA_BGX0: u32 = mmio!(0x04000028);
+const MMIO_PPUA_BGY0: u32 = mmio!(0x0400002c);
+const MMIO_PPUA_BGPA1: u32 = mmio!(0x04000030);
+const MMIO_PPUA_BGPC1: u32 = mmio!(0x04000034);
+const MMIO_PPUA_BGX1: u32 = mmio!(0x04000038);
+const MMIO_PPUA_BGY1: u32 = mmio!(0x0400003c);
+const MMIO_PPUA_WINH: u32 = mmio!(0x04000040);
+const MMIO_PPUA_WINV: u32 = mmio!(0x04000044);
+const MMIO_PPUA_WININ: u32 = mmio!(0x04000048);
+const MMIO_PPUA_MOSAIC: u32 = mmio!(0x0400004c);
+const MMIO_PPUA_BLDCNT: u32 = mmio!(0x04000050);
+const MMIO_PPUA_BLDY: u32 = mmio!(0x04000054);
+const MMIO_PPUA_RESERVED0: u32 = mmio!(0x04000058);
+const MMIO_PPUA_RESERVED1: u32 = mmio!(0x0400005c);
+const MMIO_GPU_DISP3DCNT: u32 = mmio!(0x04000060);
+const MMIO_DISPCAPCNT: u32 = mmio!(0x04000064);
+const MMIO_PPUA_MASTERBRIGHT: u32 = mmio!(0x0400006c);
 const MMIO_DMA_SOURCE0: u32 = mmio!(0x040000b0);
 const MMIO_DMA_DESTINATION0: u32 = mmio!(0x040000b4);
 const MMIO_DMA_LENGTH0: u32 = mmio!(0x040000b8);
@@ -69,7 +94,31 @@ const MMIO_SQRT_PARAM: u32 = mmio!(0x040002b8);
 const MMIO_SQRT_PARAM2: u32 = mmio!(0x040002bc);
 const MMIO_POSTFLG: u32 = mmio!(0x04000300);
 const MMIO_POWCNT1: u32 = mmio!(0x04000304);
-const MMIO_DISPCNT_B: u32 = mmio!(0x04001000);
+const MMIO_PPUB_DISPCNT: u32 = mmio!(0x04001000);
+const MMIO_PPUB_RESERVED0: u32 = mmio!(0x04001004);
+const MMIO_PPUB_BGCNT0: u32 = mmio!(0x04001008);
+const MMIO_PPUB_BGCNT1: u32 = mmio!(0x0400100c);
+const MMIO_PPUB_BGHOFS0: u32 = mmio!(0x04001010);
+const MMIO_PPUB_BGHOFS1: u32 = mmio!(0x04001014);
+const MMIO_PPUB_BGHOFS2: u32 = mmio!(0x04001018);
+const MMIO_PPUB_BGHOFS3: u32 = mmio!(0x0400101c);
+const MMIO_PPUB_BGPA0: u32 = mmio!(0x04001020);
+const MMIO_PPUB_BGPC0: u32 = mmio!(0x04001024);
+const MMIO_PPUB_BGX0: u32 = mmio!(0x04001028);
+const MMIO_PPUB_BGY0: u32 = mmio!(0x0400102c);
+const MMIO_PPUB_BGPA1: u32 = mmio!(0x04001030);
+const MMIO_PPUB_BGPC1: u32 = mmio!(0x04001034);
+const MMIO_PPUB_BGX1: u32 = mmio!(0x04001038);
+const MMIO_PPUB_BGY1: u32 = mmio!(0x0400103c);
+const MMIO_PPUB_WINH: u32 = mmio!(0x04001040);
+const MMIO_PPUB_WINV: u32 = mmio!(0x04001044);
+const MMIO_PPUB_WININ: u32 = mmio!(0x04001048);
+const MMIO_PPUB_MOSAIC: u32 = mmio!(0x0400104c);
+const MMIO_PPUB_BLDCNT: u32 = mmio!(0x04001050);
+const MMIO_PPUB_BLDY: u32 = mmio!(0x04001054);
+const MMIO_PPUB_RESERVED_START: u32 = mmio!(0x04001058);
+const MMIO_PPUB_RESERVED_END: u32 = mmio!(0x04001068);
+const MMIO_PPUB_MASTERBRIGHT: u32 = mmio!(0x0400106c);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 
 pub struct Arm9Memory {
@@ -236,7 +285,13 @@ impl Memory for Arm9Memory {
             0x05 => todo!(),
             0x06 => todo!(),
             0x07 => todo!(),
-            0x08 | 0x09 => todo!(),
+            0x08 | 0x09 => {
+                if bit::<7>(self.system.exmemcnt as _) {
+                    0
+                } else {
+                    0xffff
+                }
+            }
             _ => {
                 warn!("ARM9Memory: handle 16-bit read {addr:08x}");
                 0
@@ -317,10 +372,24 @@ impl MmioMemory for Arm9Memory {
         let mut val = 0;
 
         match mmio!(addr) {
+            MMIO_DISPCNT => return self.system.video_unit.ppu_a.read_dispcnt(),
             MMIO_DISPSTAT => handle! { MASK => {
                 0x0000ffff: val |= self.system.video_unit.read_dispstat(Arch::ARMv5),
                 0xffff0000: val |= self.system.video_unit.read_vcount() << 16
             }},
+            MMIO_PPUA_BGCNT0 => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_a.read_bgcnt(0) as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_a.read_bgcnt(1) as u32) << 16
+            }},
+            MMIO_PPUA_BGCNT1 => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_a.read_bgcnt(2) as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_a.read_bgcnt(3) as u32) << 16
+            }},
+            MMIO_PPUA_WININ => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_a.read_winin() as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_a.read_winout() as u32) << 16
+            }},
+            MMIO_DMA_SOURCE0 => return self.system.dma9.read_source(0),
             MMIO_DMA_LENGTH0 => handle! { MASK => {
                 0x0000ffff: val |= self.system.dma9.read_length(0),
                 0xffff0000: val |= (self.system.dma9.read_control(0) as u32) << 16
@@ -383,9 +452,26 @@ impl MmioMemory for Arm9Memory {
             MMIO_SQRT_RESULT => return self.system.math_unit.read_sqrt_result(),
             MMIO_SQRT_PARAM => return self.system.math_unit.read_sqrt_param() as u32,
             MMIO_SQRT_PARAM2 => return (self.system.math_unit.read_sqrt_param() >> 32) as _,
+            MMIO_POSTFLG => handle! { MASK => {
+                0xff: val |= self.postflg as u32
+            }},
+            MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
+            MMIO_PPUB_DISPCNT => return self.system.video_unit.ppu_b.read_dispcnt(),
+            MMIO_PPUB_BGCNT0 => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_b.read_bgcnt(0) as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_b.read_bgcnt(1) as u32) << 16
+            }},
+            MMIO_PPUB_BGCNT1 => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_b.read_bgcnt(2) as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_b.read_bgcnt(3) as u32) << 16
+            }},
+            MMIO_PPUB_WININ => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.ppu_b.read_winin() as u32,
+                0xffff0000: val |= (self.system.video_unit.ppu_b.read_winout() as u32) << 16
+            }},
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv5),
             _ => warn!(
-                "ARM9Memory: unmapped {}-bit read {:08x}",
+                "ARM9Memory: unmapped {}-bit  read {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),
             ),
@@ -400,6 +486,72 @@ impl MmioMemory for Arm9Memory {
                 0x0000ffff: self.system.video_unit.write_dispstat(Arch::ARMv5, val, MASK),
                 0xffff0000: self.system.video_unit.write_vcount((val >> 16) as u16, (MASK >> 16) as u16)
             }},
+            MMIO_PPUA_BGCNT0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgcnt(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgcnt(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGCNT1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgcnt(2, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgcnt(3, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGHOFS0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bghofs(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgvofs(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGHOFS1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bghofs(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgvofs(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGHOFS2 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bghofs(2, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgvofs(2, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGHOFS3 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bghofs(3, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgvofs(3, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGPA0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgpa(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgpb(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGPC0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgpc(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgpd(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGX0 => self.system.video_unit.ppu_a.write_bgx(0, val, MASK),
+            MMIO_PPUA_BGY0 => self.system.video_unit.ppu_a.write_bgy(0, val, MASK),
+            MMIO_PPUA_BGPA1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgpa(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgpb(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGPC1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bgpc(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bgpd(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BGX1 => self.system.video_unit.ppu_a.write_bgx(1, val, MASK),
+            MMIO_PPUA_BGY1 => self.system.video_unit.ppu_a.write_bgy(1, val, MASK),
+            MMIO_PPUA_WINH => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_winh(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_winh(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_WINV => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_winv(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_winv(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_WININ => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_winin(val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_winout((val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_MOSAIC => self.system.video_unit.ppu_a.write_mosaic(val as _, MASK as _),
+            MMIO_PPUA_BLDCNT => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_a.write_bldcnt(val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_a.write_bldalpha((val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUA_BLDY => self.system.video_unit.ppu_a.write_bldy(val as _, MASK as _),
+            MMIO_PPUA_RESERVED0 | MMIO_PPUA_RESERVED1 => {}
+            MMIO_GPU_DISP3DCNT => { /* todo: gpu */ }
+            MMIO_DISPCAPCNT => self.system.video_unit.write_dispcapcnt(val, MASK),
+            MMIO_PPUA_MASTERBRIGHT => self.system.video_unit.ppu_a.write_master_bright(val, MASK),
             MMIO_DMA_SOURCE0 => self.system.dma9.write_source(0, val, MASK),
             MMIO_DMA_DESTINATION0 => self.system.dma9.write_destination(0, val, MASK),
             MMIO_DMA_LENGTH0 => handle! { MASK => {
@@ -482,7 +634,72 @@ impl MmioMemory for Arm9Memory {
                 0xff: self.write_postflg(val as u8)
             }},
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
-            MMIO_DISPCNT_B => self.system.video_unit.ppu_b.write_dispcnt(val, MASK),
+            MMIO_PPUB_DISPCNT => self.system.video_unit.ppu_b.write_dispcnt(val, MASK),
+            MMIO_PPUB_RESERVED0 => {}
+            MMIO_PPUB_BGCNT0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgcnt(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgcnt(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGCNT1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgcnt(2, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgcnt(3, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGHOFS0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bghofs(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgvofs(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGHOFS1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bghofs(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgvofs(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGHOFS2 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bghofs(2, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgvofs(2, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGHOFS3 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bghofs(3, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgvofs(3, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGPA0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgpa(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgpb(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGPC0 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgpc(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgpd(0, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGX0 => self.system.video_unit.ppu_b.write_bgx(0, val, MASK),
+            MMIO_PPUB_BGY0 => self.system.video_unit.ppu_b.write_bgy(0, val, MASK),
+            MMIO_PPUB_BGPA1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgpa(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgpb(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGPC1 => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bgpc(1, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bgpd(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BGX1 => self.system.video_unit.ppu_b.write_bgx(1, val, MASK),
+            MMIO_PPUB_BGY1 => self.system.video_unit.ppu_b.write_bgy(1, val, MASK),
+            MMIO_PPUB_WINH => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_winh(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_winh(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_WINV => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_winv(0, val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_winv(1, (val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_WININ => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_winin(val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_winout((val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_MOSAIC => self.system.video_unit.ppu_b.write_mosaic(val as _, MASK as _),
+            MMIO_PPUB_BLDCNT => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.ppu_b.write_bldcnt(val as _, MASK as _),
+                0xffff0000: self.system.video_unit.ppu_b.write_bldalpha((val >> 16) as _, (MASK >> 16) as _)
+            }},
+            MMIO_PPUB_BLDY => self.system.video_unit.ppu_b.write_bldy(val as _, MASK as _),
+            MMIO_PPUB_RESERVED_START..=MMIO_PPUB_RESERVED_END => {}
+            MMIO_PPUB_MASTERBRIGHT => self.system.video_unit.ppu_b.write_master_bright(val, MASK),
             _ => warn!(
                 "ARM9Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),

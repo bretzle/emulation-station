@@ -43,6 +43,7 @@ const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
 const MMIO_SPICNT: u32 = mmio!(0x040001c0);
+const MMIO_EXMEMSTAT: u32 = mmio!(0x04000204);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
 const MMIO_IRF: u32 = mmio!(0x04000214);
@@ -54,6 +55,8 @@ const MMIO_SPU_CHANNEL_END: u32 = mmio!(0x040004fc);
 const MMIO_SOUNDCNT: u32 = mmio!(0x04000500);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
+const MMIO_WIFI_START: u32 = mmio!(0x04800000);
+const MMIO_WIFI_END: u32 = mmio!(0x04900000);
 
 pub struct Arm7Memory {
     system: Shared<System>,
@@ -163,7 +166,13 @@ impl Memory for Arm7Memory {
         match addr >> 24 {
             0x04 => self.mmio_read_half(addr),
             0x06 => self.system.video_unit.vram.arm7_vram.read(addr),
-            0x08 | 0x09 => todo!(),
+            0x08 | 0x09 => {
+                if !bit::<7>(self.system.exmemcnt as _) {
+                    0
+                } else {
+                    0xffff
+                }
+            }
             _ => {
                 warn!("ARM7Memory: handle 16-bit read {addr:08x}");
                 0
@@ -261,6 +270,10 @@ impl MmioMemory for Arm7Memory {
                 0x0000ffff: val |= self.system.timer7.read_length(3) as u32,
                 0xffff0000: val |= (self.system.timer7.read_control(3) as u32) << 16,
             }},
+            MMIO_RCNT => handle! { MASK => {
+                0x0000ffff: val |= self.rcnt as u32,
+                0xffff0000: todo!()
+            }},
             MMIO_RTC => handle! { MASK => {
                 0xff: val |= self.system.rtc.read_rtc() as u32
             }},
@@ -270,6 +283,10 @@ impl MmioMemory for Arm7Memory {
                 0x0000ffff: val |= self.system.spi.read_spicnt() as u32,
                 0xffff0000: val |= (self.system.spi.read_spidata() as u32) << 16,
             }},
+            MMIO_EXMEMSTAT => handle! { MASK => {
+                0x0000ffff: val |= self.system.read_exmemstat() as u32,
+                0xffff0000: { /* todo: wifi */ }
+            }},
             MMIO_IME => return self.system.arm7.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm7.get_irq().read_ie(),
             MMIO_IRF => return self.system.arm7.get_irq().read_irf(),
@@ -277,11 +294,15 @@ impl MmioMemory for Arm7Memory {
                 0x00ff: val |= self.system.video_unit.vram.read_vramstat() as u32,
                 0xff00: val |= (self.system.read_wramcnt() as u32) << 8
             }},
+            MMIO_POSTFLG => handle! { MASK => {
+                0xff: val |= self.postflg as u32
+            }},
             MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
             MMIO_SOUNDCNT => return self.system.spu.read_soundcnt() as u32,
+            MMIO_WIFI_START..=MMIO_WIFI_END => { /* todo: wifi */ }
             _ => warn!(
-                "ARM7Memory: unmapped {}-bit read {:08x}",
+                "ARM7Memory: unmapped {}-bit  read {:08x}",
                 get_access_size(MASK),
                 addr + get_access_offset(MASK),
             ),
@@ -352,6 +373,10 @@ impl MmioMemory for Arm7Memory {
                 0x0000ffff: self.system.spi.write_spicnt(val as _, MASK & 0xffff),
                 0xffff0000: self.system.spi.write_spidata((val >> 16) as _),
             }},
+            MMIO_EXMEMSTAT => handle! { MASK => {
+                0x0000ffff: self.system.write_exmemstat(val as _, MASK as _),
+                0xffff0000: { /* todo: wifi */ }
+            }},
             MMIO_IME => return self.system.arm7.get_irq().write_ime(val, MASK),
             MMIO_IE => return self.system.arm7.get_irq().write_ie(val, MASK),
             MMIO_IRF => return self.system.arm7.get_irq().write_irf(val, MASK),
@@ -363,6 +388,7 @@ impl MmioMemory for Arm7Memory {
             MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDCNT => self.system.spu.write_soundcnt(val as _, MASK as _),
             MMIO_SOUNDBIAS => warn!("todo: sound bias"),
+            MMIO_WIFI_START..=MMIO_WIFI_END => { /* todo: wifi */ }
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit write {:08x} = {:08x}",
                 get_access_size(MASK),

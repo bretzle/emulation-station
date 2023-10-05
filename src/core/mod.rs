@@ -49,8 +49,7 @@ pub struct System {
     wramcnt: u8,
     haltcnt: u8,
     exmemcnt: u16,
-    // exmemstat: (),
-    // rcnt: (),
+    exmemstat: u16,
     config: Config,
 }
 
@@ -78,6 +77,7 @@ impl System {
                 wramcnt: 0,
                 haltcnt: 0,
                 exmemcnt: 0,
+                exmemstat: 0,
                 config: Config::default(),
                 arm7,
                 arm9,
@@ -182,5 +182,13 @@ impl System {
 
     pub fn write_exmemcnt(&mut self, val: u16, mask: u16) {
         self.exmemcnt = (self.exmemcnt & !mask) | (val | mask)
+    }
+
+    pub const fn read_exmemstat(&self) -> u16 {
+        self.exmemstat
+    }
+
+    pub fn write_exmemstat(&mut self, val: u16, mask: u16) {
+        self.exmemstat = (self.exmemstat & !mask) | (val | mask)
     }
 }

@@ -193,6 +193,10 @@ impl Dma {
         self.dmafill[((addr - 0x040000e0) / 4) as usize] = val
     }
 
+    pub const fn read_source(&self, id: usize) -> u32 {
+        self.channels[id].source
+    }
+
     pub const fn read_length(&self, id: usize) -> u32 {
         self.channels[id].length
     }

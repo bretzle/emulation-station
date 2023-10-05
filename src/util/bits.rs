@@ -1,3 +1,5 @@
+use std::ops::{BitAnd, BitOr, Not};
+
 #[inline(always)]
 pub const fn bit<const N: usize>(x: u32) -> bool {
     ((x >> N) & 1) != 0
@@ -35,4 +37,15 @@ pub fn get_access_offset(mut mask: u32) -> u32 {
         mask >>= 8;
     }
     offset
+}
+
+#[inline(always)]
+pub fn set<T>(this: &mut T, val: T, mask: T)
+where
+    T: Copy,
+    T: Not<Output = T>,
+    T: BitAnd<Output = T>,
+    T: BitOr<Output = T>,
+{
+    *this = (*this & !mask) | (val & mask)
 }

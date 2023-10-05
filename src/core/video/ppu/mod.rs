@@ -1,6 +1,10 @@
+use log::error;
+
 use crate::bitfield;
 use crate::core::video::vram::VramRegion;
-use crate::util::Shared;
+use crate::util::{set, Shared};
+
+mod composer;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -33,11 +37,49 @@ bitfield! {
 }
 
 bitfield! {
+    #[derive(Clone, Copy)]
+    struct BgCnt(u16) {
+        priority: u8 => 0 | 1,
+        character_base: u8 => 2 | 5,
+        mosaic: bool => 6,
+        palette_8bpp: bool => 7,
+        screen_base: u8 => 8 | 12,
+        wraparound_ext_palette_slot: bool => 13,
+        size: u8 => 14 | 15
+    }
+}
+
+bitfield! {
     struct Mosaic(u32) {
         bg_width: u16 => 0 | 3,
         bg_height: u16 => 4 | 7,
         obj_width: u16 => 8 | 11,
         obj_height: u16 => 12 | 15
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum SpecialEffect {
+    None = 0,
+    AlphaBlending = 1,
+    BrightnessIncrease = 2,
+    BrightnessDecrease = 3,
+}
+
+bitfield! {
+    #[derive(Clone, Copy)]
+    struct BldCnt(u16) {
+        first_target: u16 => 0 | 5,
+        special_effect: u8 [SpecialEffect] => 6 | 7,
+        second_target: u16 => 8 | 13
+        // 14 | 15
+    }
+}
+
+bitfield! {
+    struct Bldy(u32) {
+        evy: u32 => 0 | 4
+        // 5 | 31
     }
 }
 
@@ -56,6 +98,15 @@ bitfield! {
     }
 }
 
+bitfield! {
+    struct BldAlpha(u16) {
+        eva: u16 => 0 | 4,
+        // 5 | 7
+        evb: u16 => 8 | 12
+        // 13 | 15
+    }
+}
+
 struct Object {
     priority: u32,
     color: u16,
@@ -63,26 +114,26 @@ struct Object {
 
 pub struct Ppu {
     dispcnt: DispCnt,
-    bgcnt: (),
-    bghofs: (),
-    bgvofs: (),
-    bgpa: (),
-    bgpb: (),
-    bgpc: (),
-    bgpd: (),
+    bgcnt: [BgCnt; 4],
+    bghofs: [u16; 4],
+    bgvofs: [u16; 4],
+    bgpa: [i16; 2],
+    bgpb: [i16; 2],
+    bgpc: [i16; 2],
+    bgpd: [i16; 2],
     bgx: [i32; 2],
     bgy: [i32; 2],
     internal_x: [i32; 2],
     internal_y: [i32; 2],
-    winh: (),
-    winv: (),
-    winin: (),
-    winout: (),
+    winh: [u16; 2],
+    winv: [u16; 2],
+    winin: u16,
+    winout: u16,
     mosaic: Mosaic,
-    bldcnt: (),
-    bldy: (),
+    bldcnt: BldCnt,
+    bldy: Bldy,
     master_bright: MasterBright,
-    bldalpha: (),
+    bldalpha: BldAlpha,
 
     mosaic_bg_vertical_counter: u16,
 
@@ -93,43 +144,43 @@ pub struct Ppu {
 
     palette_ram: (),
     oam: (),
-    bg: (),
-    obj: (),
-    bg_extended_palette: (),
-    obj_extended_palette: (),
+    bg: Shared<VramRegion>,
+    obj: Shared<VramRegion>,
+    bg_extended_palette: Shared<VramRegion>,
+    obj_extended_palette: Shared<VramRegion>,
     lcdc: Shared<VramRegion>,
 }
 
 impl Ppu {
     pub fn new(
-        _bg: &Shared<VramRegion>,
-        _obj: &Shared<VramRegion>,
-        _bg_extended: &Shared<VramRegion>,
-        _obj_extended: &Shared<VramRegion>,
+        bg: &Shared<VramRegion>,
+        obj: &Shared<VramRegion>,
+        bg_extended: &Shared<VramRegion>,
+        obj_extended: &Shared<VramRegion>,
         lcdc: &Shared<VramRegion>,
     ) -> Self {
         Self {
             dispcnt: DispCnt(0),
-            bgcnt: (),
-            bghofs: (),
-            bgvofs: (),
-            bgpa: (),
-            bgpb: (),
-            bgpc: (),
-            bgpd: (),
+            bgcnt: [BgCnt(0); 4],
+            bghofs: [0; 4],
+            bgvofs: [0; 4],
+            bgpa: [0; 2],
+            bgpb: [0; 2],
+            bgpc: [0; 2],
+            bgpd: [0; 2],
             bgx: [0; 2],
             bgy: [0; 2],
             internal_x: [0; 2],
             internal_y: [0; 2],
-            winh: (),
-            winv: (),
-            winin: (),
-            winout: (),
+            winh: [0; 2],
+            winv: [0; 2],
+            winin: 0,
+            winout: 0,
             mosaic: Mosaic(0),
-            bldcnt: (),
-            bldy: (),
+            bldcnt: BldCnt(0),
+            bldy: Bldy(0),
             master_bright: MasterBright(0),
-            bldalpha: (),
+            bldalpha: BldAlpha(0),
             mosaic_bg_vertical_counter: 0,
             framebuffer: Box::new([0; 256 * 192]),
             converted_framebuffer: Box::new([0; 256 * 192 * 4]),
@@ -137,10 +188,10 @@ impl Ppu {
             obj_buffer: std::array::from_fn(|_| Object { priority: 0, color: 0 }),
             palette_ram: (),
             oam: (),
-            bg: (),
-            obj: (),
-            bg_extended_palette: (),
-            obj_extended_palette: (),
+            bg: bg.clone(),
+            obj: obj.clone(),
+            bg_extended_palette: bg_extended.clone(),
+            obj_extended_palette: obj_extended.clone(),
             lcdc: lcdc.clone(),
         }
     }
@@ -173,7 +224,7 @@ impl Ppu {
 
         match self.dispcnt.display_mode() {
             0 => self.render_blank_screen(line),
-            1 => todo!(),
+            1 => self.render_graphics_display(line),
             2 => self.render_vram_display(line),
             3 => todo!(),
             _ => unreachable!(),
@@ -220,8 +271,83 @@ impl Ppu {
         self.framebuffer[((256 * y) + x) as usize] = color;
     }
 
+    pub const fn read_dispcnt(&self) -> u32 {
+        self.dispcnt.0
+    }
+
+    pub const fn read_bgcnt(&self, id: usize) -> u16 {
+        self.bgcnt[id].0
+    }
+
+    pub const fn read_winin(&self) -> u16 {
+        self.winin
+    }
+
+    pub const fn read_winout(&self) -> u16 {
+        self.winout
+    }
+
     pub fn write_dispcnt(&mut self, val: u32, mask: u32) {
         self.dispcnt.0 = (self.dispcnt.0 & !mask) | (val & mask)
+    }
+
+    pub fn write_bgcnt(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgcnt[id].0, val, mask)
+    }
+    pub fn write_bghofs(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bghofs[id], val, mask)
+    }
+    pub fn write_bgvofs(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgvofs[id], val, mask)
+    }
+    pub fn write_bgpa(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgpa[id], val as _, mask as _)
+    }
+    pub fn write_bgpb(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgpb[id], val as _, mask as _)
+    }
+    pub fn write_bgpc(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgpc[id], val as _, mask as _)
+    }
+    pub fn write_bgpd(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.bgpd[id], val as _, mask as _)
+    }
+    pub fn write_bgx(&mut self, id: usize, val: u32, mask: u32) {
+        set(&mut self.bgx[id], val as _, (mask & 0xfffffff) as _);
+        self.bgx[id] = (self.bgx[id] << 28 >> 28) as u32 as i32;
+        self.internal_x[id] = self.bgx[id]
+    }
+    pub fn write_bgy(&mut self, id: usize, val: u32, mask: u32) {
+        set(&mut self.bgy[id], val as _, (mask & 0xfffffff) as _);
+        self.bgy[id] = (self.bgy[id] << 28 >> 28) as u32 as i32;
+        self.internal_y[id] = self.bgy[id]
+    }
+    pub fn write_winh(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.winh[id], val, mask)
+    }
+    pub fn write_winv(&mut self, id: usize, val: u16, mask: u16) {
+        set(&mut self.winv[id], val, mask)
+    }
+    pub fn write_winin(&mut self, val: u16, mask: u16) {
+        set(&mut self.winin, val, mask)
+    }
+    pub fn write_winout(&mut self, val: u16, mask: u16) {
+        set(&mut self.winout, val, mask)
+    }
+    pub fn write_mosaic(&mut self, val: u32, mask: u32) {
+        set(&mut self.mosaic.0, val, mask & 0xffff)
+    }
+    pub fn write_bldcnt(&mut self, val: u16, mask: u16) {
+        set(&mut self.bldcnt.0, val, mask)
+    }
+    pub fn write_bldalpha(&mut self, val: u16, mask: u16) {
+        set(&mut self.bldalpha.0, val, mask)
+    }
+    pub fn write_bldy(&mut self, val: u32, mask: u32) {
+        set(&mut self.bldy.0, val, mask)
+    }
+    pub fn write_master_bright(&mut self, val: u32, mask: u32) {
+        set(&mut self.master_bright.0, val, mask)
     }
 
     fn render_vram_display(&mut self, line: u16) {
@@ -231,16 +357,57 @@ impl Ppu {
             self.plot(x, line, rgb555_to_rgb666(data));
         }
     }
+
+    fn render_graphics_display(&mut self, line: u16) {
+        if self.dispcnt.enable_bg0() {
+            if self.dispcnt.bg0_3d() || self.dispcnt.bg_mode() == 6 {
+                error!("PPU: handle 3d rendering")
+            } else {
+                todo!("render_text")
+            }
+        }
+
+        if self.dispcnt.enable_bg1() {
+            if self.dispcnt.bg_mode() != 6 {
+                todo!("render_text")
+            }
+        }
+
+        if self.dispcnt.enable_bg2() {
+            match self.dispcnt.bg_mode() {
+                0 | 1 | 3 => todo!("render_text"),
+                2 | 4 => todo!("render_affine"),
+                5 => todo!("render_extended"),
+                6 => todo!("render_large"),
+                _ => unreachable!(),
+            }
+        }
+
+        if self.dispcnt.enable_bg3() {
+            match self.dispcnt.bg_mode() {
+                0 => todo!("render_text"),
+                1 | 2 => todo!("render_affine"),
+                3 | 4 | 5 => todo!("render_extended"),
+                _ => unreachable!(),
+            }
+        }
+
+        if self.dispcnt.enable_obj() {
+            todo!("render_objects")
+        }
+
+        self.compose_scanline(line);
+    }
 }
 
-fn rgb555_to_rgb666(color: u32) -> u32 {
+const fn rgb555_to_rgb666(color: u32) -> u32 {
     let r = (color & 0x1f) * 2;
     let g = ((color >> 5) & 0x1f) * 2;
     let b = ((color >> 10) & 0x1f) * 2;
     (b << 12) | (g << 6) | r
 }
 
-fn rgb666_to_rgb888(colour: u32) -> [u8; 4] {
+const fn rgb666_to_rgb888(colour: u32) -> [u8; 4] {
     let r = (((colour & 0x3f) * 255) / 63) as u8;
     let g = ((((colour >> 6) & 0x3f) * 255) / 63) as u8;
     let b = ((((colour >> 12) & 0x3f) * 255) / 63) as u8;

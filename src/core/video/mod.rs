@@ -1,6 +1,7 @@
 use crate::arm::cpu::Arch;
 use std::rc::Rc;
 use std::sync::Arc;
+use log::error;
 
 use crate::bitfield;
 use crate::core::hardware::dma::DmaTiming;
@@ -8,7 +9,7 @@ use crate::core::scheduler::EventInfo;
 use crate::core::video::ppu::Ppu;
 use crate::core::video::vram::{Vram, VramBank};
 use crate::core::System;
-use crate::util::Shared;
+use crate::util::{set, Shared};
 
 pub mod ppu;
 pub mod vram;
@@ -45,6 +46,25 @@ bitfield! {
     }
 }
 
+bitfield! {
+    struct DispCapCnt(u32) {
+         eva: u32 => 0 | 4,
+         // 5 | 7
+         evb: u32 => 8 | 12,
+         // 13 | 15
+         vram_write_block: u32 => 16 | 17,
+         vram_write_offset: u32 => 18 | 19,
+         capture_size: u32 => 20 | 21,
+         // 22 | 23
+         source_a: bool => 24,
+         source_b: bool => 25,
+         vram_read_offset: u32 => 26 | 27,
+         // 28
+         capture_source: u32 => 29 | 30,
+         capture_enable: bool => 31
+    }
+}
+
 pub struct VideoUnit {
     system: Shared<System>,
     pub vram: Vram,
@@ -59,7 +79,7 @@ pub struct VideoUnit {
     vcount: u16,
     dispstat7: DispStat,
     dispstat9: DispStat,
-    dispcapcnt: (),
+    dispcapcnt: DispCapCnt,
     irq7: (),
     irq9: (),
 
@@ -94,7 +114,7 @@ impl VideoUnit {
             vcount: 0,
             dispstat7: DispStat(0),
             dispstat9: DispStat(0),
-            dispcapcnt: (),
+            dispcapcnt: DispCapCnt(0),
             irq7: (),
             irq9: (),
 
@@ -247,5 +267,12 @@ impl VideoUnit {
 
     pub fn write_vcount(&mut self, val: u16, mask: u16) {
         self.vcount = (self.vcount & !mask) | (val & mask)
+    }
+
+    pub fn write_dispcapcnt(&mut self, val: u32, mask: u32) {
+        set(&mut self.dispcapcnt.0, val, mask);
+        if self.dispcapcnt.capture_enable() {
+            error!("VideoUnit: handle display capture")
+        }
     }
 }
