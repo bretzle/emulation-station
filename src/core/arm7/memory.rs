@@ -12,6 +12,14 @@ macro_rules! mmio {
     };
 }
 
+macro_rules! handle {
+    ($mask:ident => {
+        $( $filter:literal: $call:expr ),+ $(,)?
+    }) => {{
+        { $( if $mask & $filter != 0 { $call } )+ }
+    }};
+}
+
 const MMIO_DISPSTAT: u32 = mmio!(0x04000004);
 const MMIO_DMA_SOURCE0: u32 = mmio!(0x040000b0);
 const MMIO_DMA_DESTINATION0: u32 = mmio!(0x040000b4);
@@ -229,80 +237,46 @@ impl MmioMemory for Arm7Memory {
     fn mmio_read<const MASK: u32>(&mut self, addr: u32) -> u32 {
         let mut val = 0;
         match mmio!(addr) {
-            MMIO_DISPSTAT => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.video_unit.read_dispstat(Arch::ARMv4)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= self.system.video_unit.read_vcount() << 16
-                }
-            }
-            MMIO_DMA_LENGTH3 => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.dma9.read_length(3)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.dma9.read_control(3) as u32) << 16
-                }
-            }
-            MMIO_TIMER0 => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.timer7.read_length(0) as u32
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.timer7.read_control(0) as u32) << 16
-                }
-            }
-            MMIO_TIMER1 => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.timer7.read_length(1) as u32
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.timer7.read_control(1) as u32) << 16
-                }
-            }
-            MMIO_TIMER2 => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.timer7.read_length(2) as u32
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.timer7.read_control(2) as u32) << 16
-                }
-            }
-            MMIO_TIMER3 => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.timer7.read_length(3) as u32
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.timer7.read_control(3) as u32) << 16
-                }
-            }
-            MMIO_RTC => {
-                if MASK & 0xff != 0 {
-                    val |= self.system.rtc.read_rtc() as u32
-                }
-            }
+            MMIO_DISPSTAT => handle! { MASK => {
+                0x0000ffff: val |= self.system.video_unit.read_dispstat(Arch::ARMv4),
+                0xffff0000: val |= self.system.video_unit.read_vcount() << 16,
+            }},
+            MMIO_DMA_LENGTH3 => handle! { MASK => {
+                0x0000ffff: val |= self.system.dma9.read_length(3),
+                0xffff0000: val |= (self.system.dma9.read_control(3) as u32) << 16,
+            }},
+            MMIO_TIMER0 => handle! { MASK => {
+                0x0000ffff: val |= self.system.timer7.read_length(0) as u32,
+                0xffff0000: val |= (self.system.timer7.read_control(0) as u32) << 16,
+            }},
+            MMIO_TIMER1 => handle! { MASK => {
+                0x0000ffff: val |= self.system.timer7.read_length(1) as u32,
+                0xffff0000: val |= (self.system.timer7.read_control(1) as u32) << 16,
+            }},
+            MMIO_TIMER2 => handle! { MASK => {
+                0x0000ffff: val |= self.system.timer7.read_length(2) as u32,
+                0xffff0000: val |= (self.system.timer7.read_control(2) as u32) << 16,
+            }},
+            MMIO_TIMER3 => handle! { MASK => {
+                0x0000ffff: val |= self.system.timer7.read_length(3) as u32,
+                0xffff0000: val |= (self.system.timer7.read_control(3) as u32) << 16,
+            }},
+            MMIO_RTC => handle! { MASK => {
+                0xff: val |= self.system.rtc.read_rtc() as u32
+            }},
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv4),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv4) as u32,
-            MMIO_SPICNT => {
-                if MASK & 0xffff != 0 {
-                    val |= self.system.spi.read_spicnt() as u32;
-                }
-                if MASK & 0xffff0000 != 0 {
-                    val |= (self.system.spi.read_spidata() as u32) << 16
-                }
-            }
+            MMIO_SPICNT => handle! { MASK => {
+                0x0000ffff: val |= self.system.spi.read_spicnt() as u32,
+                0xffff0000: val |= (self.system.spi.read_spidata() as u32) << 16,
+            }},
             MMIO_IME => return self.system.arm7.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm7.get_irq().read_ie(),
             MMIO_IRF => return self.system.arm7.get_irq().read_irf(),
-            MMIO_VRAMSTAT => {
-                if MASK & 0xff != 0 {
-                    val |= self.system.video_unit.vram.read_vramstat() as u32
-                }
-                if MASK & 0xff00 != 0 {
-                    val |= (self.system.read_wramcnt() as u32) << 8
-                }
-            }
+            MMIO_VRAMSTAT => handle! { MASK => {
+                0x00ff: val |= self.system.video_unit.vram.read_vramstat() as u32,
+                0xff00: val |= (self.system.read_wramcnt() as u32) << 8
+            }},
             MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
             MMIO_SOUNDCNT => return self.system.spu.read_soundcnt() as u32,
@@ -317,126 +291,74 @@ impl MmioMemory for Arm7Memory {
 
     fn mmio_write<const MASK: u32>(&mut self, addr: u32, val: u32) {
         match mmio!(addr) {
-            MMIO_DISPSTAT => {
-                if MASK & 0xffff != 0 {
-                    self.system.video_unit.write_dispstat(Arch::ARMv4, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    error!("ARM7Memory: handle vcount write")
-                }
-            }
+            MMIO_DISPSTAT => handle! { MASK => {
+                0x0000ffff: self.system.video_unit.write_dispstat(Arch::ARMv4, val, MASK),
+                0xffff0000: error!("ARM7Memory: handle vcount write"),
+            }},
             MMIO_DMA_SOURCE0 => self.system.dma7.write_source(0, val, MASK),
             MMIO_DMA_DESTINATION0 => self.system.dma7.write_destination(0, val, MASK),
-            MMIO_DMA_LENGTH0 => {
-                if MASK & 0xffff != 0 {
-                    self.system.dma7.write_length(0, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.dma7.write_control(0, val >> 16, MASK >> 16)
-                }
-            }
+            MMIO_DMA_LENGTH0 => handle! { MASK => {
+                0x0000ffff: self.system.dma7.write_length(0, val, MASK),
+                0xffff0000: self.system.dma7.write_control(0, val >> 16, MASK >> 16),
+            }},
             MMIO_DMA_SOURCE1 => self.system.dma7.write_source(1, val, MASK),
             MMIO_DMA_DESTINATION1 => self.system.dma7.write_destination(1, val, MASK),
-            MMIO_DMA_LENGTH1 => {
-                if MASK & 0xffff != 0 {
-                    self.system.dma7.write_length(1, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.dma7.write_control(1, val >> 16, MASK >> 16)
-                }
-            }
+            MMIO_DMA_LENGTH1 => handle! { MASK => {
+                0x0000ffff: self.system.dma7.write_length(1, val, MASK),
+                0xffff0000: self.system.dma7.write_control(1, val >> 16, MASK >> 16),
+            }},
             MMIO_DMA_SOURCE2 => self.system.dma7.write_source(2, val, MASK),
             MMIO_DMA_DESTINATION2 => self.system.dma7.write_destination(2, val, MASK),
-            MMIO_DMA_LENGTH2 => {
-                if MASK & 0xffff != 0 {
-                    self.system.dma7.write_length(2, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.dma7.write_control(2, val >> 16, MASK >> 16)
-                }
-            }
+            MMIO_DMA_LENGTH2 => handle! { MASK => {
+                0x0000ffff: self.system.dma7.write_length(2, val, MASK),
+                0xffff0000: self.system.dma7.write_control(2, val >> 16, MASK >> 16),
+            }},
             MMIO_DMA_SOURCE3 => self.system.dma7.write_source(3, val, MASK),
             MMIO_DMA_DESTINATION3 => self.system.dma7.write_destination(3, val, MASK),
-            MMIO_DMA_LENGTH3 => {
-                if MASK & 0xffff != 0 {
-                    self.system.dma7.write_length(3, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.dma7.write_control(3, val >> 16, MASK >> 16)
-                }
-            }
-            MMIO_TIMER0 => {
-                if MASK & 0xffff != 0 {
-                    self.system.timer7.write_length(0, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.timer7.write_control(0, (val >> 16) as u16, MASK >> 16)
-                }
-            }
-            MMIO_TIMER1 => {
-                if MASK & 0xffff != 0 {
-                    self.system.timer7.write_length(1, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.timer7.write_control(1, (val >> 16) as u16, MASK >> 16)
-                }
-            }
-            MMIO_TIMER2 => {
-                if MASK & 0xffff != 0 {
-                    self.system.timer7.write_length(2, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.timer7.write_control(2, (val >> 16) as u16, MASK >> 16)
-                }
-            }
-            MMIO_TIMER3 => {
-                if MASK & 0xffff != 0 {
-                    self.system.timer7.write_length(3, val, MASK)
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.timer7.write_control(3, (val >> 16) as u16, MASK >> 16)
-                }
-            }
-            MMIO_RCNT => {
-                if MASK & 0xffff != 0 {
-                    self.rcnt = val as _;
-                }
-            }
-            MMIO_RTC => {
-                if MASK & 0xff != 0 {
-                    self.system.rtc.write_rtc(val as u8)
-                }
-            }
-            MMIO_IPCSYNC => {
-                if MASK & 0xffff != 0 {
-                    self.system.ipc.write_ipcsync(Arch::ARMv4, val, MASK)
-                }
-            }
-            MMIO_IPCFIFOCNT => {
-                if MASK & 0xffff != 0 {
-                    self.system.ipc.write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _);
-                }
-            }
+            MMIO_DMA_LENGTH3 => handle! { MASK => {
+                0x0000ffff: self.system.dma7.write_length(3, val, MASK),
+                0xffff0000: self.system.dma7.write_control(3, val >> 16, MASK >> 16),
+            }},
+            MMIO_TIMER0 => handle! { MASK => {
+                0x0000ffff: self.system.timer7.write_length(0, val, MASK),
+                0xffff0000: self.system.timer7.write_control(0, (val >> 16) as u16, MASK >> 16),
+            }},
+            MMIO_TIMER1 => handle! { MASK => {
+                0x0000ffff: self.system.timer7.write_length(1, val, MASK),
+                0xffff0000: self.system.timer7.write_control(1, (val >> 16) as u16, MASK >> 16),
+            }},
+            MMIO_TIMER2 => handle! { MASK => {
+                0x0000ffff: self.system.timer7.write_length(2, val, MASK),
+                0xffff0000: self.system.timer7.write_control(2, (val >> 16) as u16, MASK >> 16),
+            }},
+            MMIO_TIMER3 => handle! { MASK => {
+                0x0000ffff: self.system.timer7.write_length(3, val, MASK),
+                0xffff0000: self.system.timer7.write_control(3, (val >> 16) as u16, MASK >> 16),
+            }},
+            MMIO_RCNT => handle! { MASK => {
+                0xffff: self.rcnt = val as _
+            }},
+            MMIO_RTC => handle! { MASK => {
+                0xff: self.system.rtc.write_rtc(val as u8)
+            }},
+            MMIO_IPCSYNC => handle! { MASK => {
+                0xffff: self.system.ipc.write_ipcsync(Arch::ARMv4, val, MASK)
+            }},
+            MMIO_IPCFIFOCNT => handle! { MASK => {
+                0xffff: self.system.ipc.write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _)
+            }},
             MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv4, val),
-            MMIO_SPICNT => {
-                if MASK & 0xffff != 0 {
-                    self.system.spi.write_spicnt(val as _, MASK & 0xffff);
-                }
-                if MASK & 0xffff0000 != 0 {
-                    self.system.spi.write_spidata((val >> 16) as _)
-                }
-            }
+            MMIO_SPICNT => handle! { MASK => {
+                0x0000ffff: self.system.spi.write_spicnt(val as _, MASK & 0xffff),
+                0xffff0000: self.system.spi.write_spidata((val >> 16) as _),
+            }},
             MMIO_IME => return self.system.arm7.get_irq().write_ime(val, MASK),
             MMIO_IE => return self.system.arm7.get_irq().write_ie(val, MASK),
             MMIO_IRF => return self.system.arm7.get_irq().write_irf(val, MASK),
-            MMIO_POSTFLG => {
-                if MASK & 0xff != 0 {
-                    self.write_postflg(val as u8)
-                }
-                if MASK & 0xff00 != 0 {
-                    self.system.write_haltcnt((val >> 8) as u8)
-                }
-            }
+            MMIO_POSTFLG => handle! { MASK => {
+                0x00ff: self.write_postflg(val as u8),
+                0xff00: self.system.write_haltcnt((val >> 8) as u8)
+            }},
             MMIO_POWCNT1 => self.system.video_unit.write_powcnt1(val, MASK),
             MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDCNT => self.system.spu.write_soundcnt(val as _, MASK as _),

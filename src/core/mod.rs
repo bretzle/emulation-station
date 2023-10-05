@@ -48,7 +48,7 @@ pub struct System {
 
     wramcnt: u8,
     haltcnt: u8,
-    // exmemcnt: (),
+    exmemcnt: u16,
     // exmemstat: (),
     // rcnt: (),
     config: Config,
@@ -77,6 +77,7 @@ impl System {
                 shared_wram: vec![0; 0x8000].into_boxed_slice(),
                 wramcnt: 0,
                 haltcnt: 0,
+                exmemcnt: 0,
                 config: Config::default(),
                 arm7,
                 arm9,
@@ -173,5 +174,13 @@ impl System {
             0x3 => todo!(),
             _ => todo!(),
         }
+    }
+
+    pub const fn read_exmemcnt(&self) -> u16 {
+        self.exmemcnt
+    }
+
+    pub fn write_exmemcnt(&mut self, val: u16, mask: u16) {
+        self.exmemcnt = (self.exmemcnt & !mask) | (val | mask)
     }
 }
