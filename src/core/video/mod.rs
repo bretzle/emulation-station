@@ -72,8 +72,8 @@ pub struct VideoUnit {
     pub ppu_b: Ppu,
     pub gpu: (),
 
-    palette_ram: [u8; 0x800],
-    oam: [u8; 0x800],
+    palette_ram: Box<[u8; 0x800]>,
+    oam: Box<[u8; 0x800]>,
 
     powcnt1: PowCnt1,
     vcount: u16,
@@ -90,6 +90,8 @@ pub struct VideoUnit {
 impl VideoUnit {
     pub fn new(system: &Shared<System>) -> Self {
         let vram = Vram::new();
+        let mut palette_ram = Box::new([0; 0x800]);
+        let mut oam = Box::new([0; 0x800]);
         Self {
             system: system.clone(),
             ppu_a: Ppu::new(
@@ -98,6 +100,8 @@ impl VideoUnit {
                 &vram.bga_extended_palette,
                 &vram.obja_extended_palette,
                 &vram.lcdc,
+                palette_ram.as_mut_slice(),
+                oam.as_mut_slice()
             ),
             ppu_b: Ppu::new(
                 &vram.bgb,
@@ -105,11 +109,13 @@ impl VideoUnit {
                 &vram.bgb_extended_palette,
                 &vram.objb_extended_palette,
                 &vram.lcdc,
+                &mut palette_ram.as_mut_slice()[0x400..],
+                &mut oam.as_mut_slice()[0x400..]
             ),
             vram,
             gpu: (),
-            palette_ram: [0; 0x800],
-            oam: [0; 0x800],
+            palette_ram,
+            oam,
             powcnt1: PowCnt1(0),
             vcount: 0,
             dispstat7: DispStat(0),

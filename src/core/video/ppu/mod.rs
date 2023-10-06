@@ -1,3 +1,4 @@
+use std::ptr::NonNull;
 use log::error;
 
 use crate::bitfield;
@@ -5,6 +6,9 @@ use crate::core::video::vram::VramRegion;
 use crate::util::{set, Shared};
 
 mod composer;
+mod text;
+mod tile_decoder;
+mod object;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -39,13 +43,13 @@ bitfield! {
 bitfield! {
     #[derive(Clone, Copy)]
     struct BgCnt(u16) {
-        priority: u8 => 0 | 1,
-        character_base: u8 => 2 | 5,
+        priority: u32 => 0 | 1,
+        character_base: u32 => 2 | 5,
         mosaic: bool => 6,
         palette_8bpp: bool => 7,
-        screen_base: u8 => 8 | 12,
+        screen_base: u32 => 8 | 12,
         wraparound_ext_palette_slot: bool => 13,
-        size: u8 => 14 | 15
+        size: usize => 14 | 15
     }
 }
 
@@ -142,8 +146,8 @@ pub struct Ppu {
     bg_layers: [[u16; 256]; 4],
     obj_buffer: [Object; 256],
 
-    palette_ram: (),
-    oam: (),
+    palette_ram: NonNull<[u8]>,
+    oam: NonNull<[u8]>,
     bg: Shared<VramRegion>,
     obj: Shared<VramRegion>,
     bg_extended_palette: Shared<VramRegion>,
@@ -158,6 +162,8 @@ impl Ppu {
         bg_extended: &Shared<VramRegion>,
         obj_extended: &Shared<VramRegion>,
         lcdc: &Shared<VramRegion>,
+        palette_ram: &mut [u8],
+        oam: &mut [u8],
     ) -> Self {
         Self {
             dispcnt: DispCnt(0),
@@ -186,8 +192,8 @@ impl Ppu {
             converted_framebuffer: Box::new([0; 256 * 192 * 4]),
             bg_layers: [[0; 256]; 4],
             obj_buffer: std::array::from_fn(|_| Object { priority: 0, color: 0 }),
-            palette_ram: (),
-            oam: (),
+            palette_ram: NonNull::new(palette_ram).unwrap(),
+            oam: NonNull::new(oam).unwrap(),
             bg: bg.clone(),
             obj: obj.clone(),
             bg_extended_palette: bg_extended.clone(),
@@ -363,19 +369,19 @@ impl Ppu {
             if self.dispcnt.bg0_3d() || self.dispcnt.bg_mode() == 6 {
                 error!("PPU: handle 3d rendering")
             } else {
-                todo!("render_text")
+                self.render_text(0, line)
             }
         }
 
         if self.dispcnt.enable_bg1() {
             if self.dispcnt.bg_mode() != 6 {
-                todo!("render_text")
+                self.render_text(1, line)
             }
         }
 
         if self.dispcnt.enable_bg2() {
             match self.dispcnt.bg_mode() {
-                0 | 1 | 3 => todo!("render_text"),
+                0 | 1 | 3 => self.render_text(2, line),
                 2 | 4 => todo!("render_affine"),
                 5 => todo!("render_extended"),
                 6 => todo!("render_large"),
@@ -385,7 +391,7 @@ impl Ppu {
 
         if self.dispcnt.enable_bg3() {
             match self.dispcnt.bg_mode() {
-                0 => todo!("render_text"),
+                0 => self.render_text(3, line),
                 1 | 2 => todo!("render_affine"),
                 3 | 4 | 5 => todo!("render_extended"),
                 _ => unreachable!(),
@@ -393,7 +399,7 @@ impl Ppu {
         }
 
         if self.dispcnt.enable_obj() {
-            todo!("render_objects")
+            self.render_objects(line)
         }
 
         self.compose_scanline(line);

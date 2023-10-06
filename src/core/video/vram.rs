@@ -299,7 +299,7 @@ impl VramPage {
         self.banks.push(ptr);
     }
 
-    pub fn read<T: Default + BitOrAssign + Copy>(&mut self, addr: u32) -> T {
+    pub fn read<T: Default + BitOrAssign + Copy>(&self, addr: u32) -> T {
         unsafe {
             let mut data = T::default();
             for bank in &self.banks {
