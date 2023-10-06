@@ -10,6 +10,12 @@ pub const fn get_field<const START: usize, const SIZE: usize>(val: u32) -> u32 {
     (val >> START) & !(u32::MAX << SIZE)
 }
 
+// todo: consolidate these functions
+#[inline(always)]
+pub const fn get_field64<const START: usize, const SIZE: usize>(val: u64) -> u64 {
+    (val >> START) & !(u64::MAX << SIZE)
+}
+
 #[inline(always)]
 pub const fn sign_extend<const N: usize>(val: u32) -> u32 {
     let shift = (32 - N) as u32;

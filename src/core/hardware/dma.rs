@@ -1,3 +1,5 @@
+use std::mem::transmute;
+use std::ops::Shr;
 use std::rc::Rc;
 
 use crate::arm::cpu::Arch;
@@ -18,6 +20,16 @@ pub enum DmaTiming {
     Slot1 = 5,
     Slot2 = 6,
     GXFIFO = 7,
+}
+
+impl Shr<usize> for DmaTiming {
+    type Output = DmaTiming;
+
+    fn shr(self, rhs: usize) -> Self::Output {
+        unsafe {
+            transmute(self as u8 >> rhs)
+        }
+    }
 }
 
 enum AddressMode {
@@ -95,7 +107,7 @@ impl Dma {
     pub fn trigger(&mut self, timing: DmaTiming) {
         for (i, channel) in self.channels.iter_mut().enumerate() {
             let channel_timing = match self.arch {
-                Arch::ARMv4 => todo!(),
+                Arch::ARMv4 => channel.control.timing() >> 1,
                 Arch::ARMv5 => channel.control.timing(),
             };
 

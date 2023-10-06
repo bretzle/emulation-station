@@ -272,7 +272,7 @@ impl MmioMemory for Arm7Memory {
             }},
             MMIO_RCNT => handle! { MASK => {
                 0x0000ffff: val |= self.rcnt as u32,
-                0xffff0000: todo!()
+                0xffff0000: val |= (self.system.input.read_extkeyin() as u32) << 16
             }},
             MMIO_RTC => handle! { MASK => {
                 0xff: val |= self.system.rtc.read_rtc() as u32

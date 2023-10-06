@@ -72,6 +72,10 @@ const MMIO_KEYINPUT: u32 = mmio!(0x04000130);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
+const MMIO_AUXSPICNT: u32 = mmio!(0x040001a0);
+const MMIO_ROMCTRL: u32 = mmio!(0x040001a4);
+const MMIO_COMMAND_BUFFER0: u32 = mmio!(0x040001a8);
+const MMIO_COMMAND_BUFFER1: u32 = mmio!(0x040001ac);
 const MMIO_EXMEMCNT: u32 = mmio!(0x04000204);
 const MMIO_IME: u32 = mmio!(0x04000208);
 const MMIO_IE: u32 = mmio!(0x04000210);
@@ -120,6 +124,7 @@ const MMIO_PPUB_RESERVED_START: u32 = mmio!(0x04001058);
 const MMIO_PPUB_RESERVED_END: u32 = mmio!(0x04001068);
 const MMIO_PPUB_MASTERBRIGHT: u32 = mmio!(0x0400106c);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
+const MMIO_CARTRIDGE_DATA: u32 = mmio!(0x04100010);
 
 pub struct Arm9Memory {
     system: Shared<System>,
@@ -429,6 +434,7 @@ impl MmioMemory for Arm9Memory {
             }},
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv5),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv5) as u32,
+            MMIO_ROMCTRL => return self.system.cartridge.read_romctrl(),
             MMIO_EXMEMCNT => return self.system.read_exmemcnt() as u32,
             MMIO_IME => return self.system.arm9.get_irq().read_ime() as u32,
             MMIO_IE => return self.system.arm9.get_irq().read_ie(),
@@ -470,6 +476,7 @@ impl MmioMemory for Arm9Memory {
                 0xffff0000: val |= (self.system.video_unit.ppu_b.read_winout() as u32) << 16
             }},
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv5),
+            MMIO_CARTRIDGE_DATA => return self.system.cartridge.read_data(),
             _ => warn!(
                 "ARM9Memory: unmapped {}-bit  read {:08x}",
                 get_access_size(MASK),
@@ -600,6 +607,13 @@ impl MmioMemory for Arm9Memory {
                 0xffff: self.system.ipc.write_ipcfifocnt(Arch::ARMv5, val as _, MASK as _)
             }},
             MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv5, val),
+            MMIO_AUXSPICNT => handle! { MASK => {
+                0x0000ffff: self.system.cartridge.write_auxspicnt(val as _, MASK as _),
+                0x00ff0000: error!("handle auxspidata writes")
+            }},
+            MMIO_ROMCTRL => self.system.cartridge.write_romctrl(val, MASK),
+            MMIO_COMMAND_BUFFER0 => self.system.cartridge.write_command_buffer(val as _, MASK as _),
+            MMIO_COMMAND_BUFFER1 => self.system.cartridge.write_command_buffer((val as u64) << 32, (MASK as u64) << 32),
             MMIO_EXMEMCNT => handle! { MASK => {
                 0xffff: self.system.write_exmemcnt(val as _, MASK as _)
             }},
