@@ -9,7 +9,7 @@
 use std::fs::File;
 
 use log::LevelFilter;
-use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, TermLogger, TerminalMode, WriteLogger};
+use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, TerminalMode, TermLogger, WriteLogger};
 
 use crate::application::Application;
 

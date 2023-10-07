@@ -333,6 +333,7 @@ impl Memory for Arm9Memory {
         match addr >> 24 {
             0x04 => self.mmio_write_byte(addr, val),
             0x06 => self.system.video_unit.vram.write(addr, val),
+            _ => warn!("ARM9Memory: handle 8-bit write {addr:08x} = {val:02x}"),
         }
     }
 
@@ -346,6 +347,7 @@ impl Memory for Arm9Memory {
             0x05 => self.system.video_unit.write_palette_ram(addr, val),
             0x06 => self.system.video_unit.vram.write(addr, val),
             0x07 => self.system.video_unit.write_oam(addr, val),
+            _ => warn!("ARM9Memory: handle 16-bit write {addr:08x} = {val:04x}"),
         }
     }
 

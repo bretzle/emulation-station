@@ -1,9 +1,11 @@
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::mem::swap;
 use std::ops::Not;
 
 use log::{trace, warn};
 
 use crate::arm::coprocessor::Coprocessor;
-use crate::arm::DEBUG;
 use crate::arm::decoder::Decoder;
 use crate::arm::memory::Memory;
 use crate::arm::state::{Bank, Condition, Mode, State, StatusReg, GPR};
@@ -39,6 +41,9 @@ pub struct Cpu {
     pipeline: [u32; 2],
     pub instruction: u32,
     condition_table: [[bool; 16]; 16],
+
+    #[cfg(feature = "log_state")]
+    debug: BufWriter<File>,
     // jit stuff
     // todo
 }
@@ -56,6 +61,8 @@ impl Cpu {
             pipeline: [0; 2],
             instruction: 0,
             condition_table: Condition::table(),
+            #[cfg(feature = "log_state")]
+            debug: BufWriter::new(File::create(format!("{arch:?}.log")).unwrap())
         }
     }
 
@@ -96,29 +103,44 @@ impl Cpu {
             self.instruction = self.pipeline[0];
             self.pipeline[0] = self.pipeline[1];
 
+            static mut COUNT: [u32; 2] = [0; 2];
+
             if self.state.cpsr.thumb() {
                 self.state.gpr[15] &= !0x1;
                 self.pipeline[1] = self.code_read_half(self.state.gpr[15]) as u32;
-                if unsafe {DEBUG} {
-                    trace!("{:?} (thumb) {:08x}: {:04x}", self.arch, self.state.gpr[15] - 4, self.instruction);
-                }
                 let handler = self.decoder.decode_thumb(self.instruction);
-                (handler)(self, self.instruction)
+
+                (handler)(self, self.instruction);
+                self.log_state();
+                unsafe { COUNT[self.arch as usize] += 1 }
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
                 if self.evaluate_cond((self.instruction >> 28).into()) {
-                    if unsafe {DEBUG} {
-                        trace!("{:?} (arm) {:08x}: {:08x}", self.arch, self.state.gpr[15] - 8, self.instruction);
-                    }
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
+                    self.log_state();
+                    unsafe { COUNT[self.arch as usize] += 1 }
                 } else {
                     self.state.gpr[15] += 4;
                 }
             }
         }
     }
+
+    #[cfg(feature = "log_state")]
+    fn log_state(&mut self) {
+        use std::io::Write;
+
+        let thumb = self.state.cpsr.thumb();
+        let pc = self.state.gpr[15] - if thumb { 4 } else { 8 };
+        let inst = self.instruction;
+
+        writeln!(self.debug, "{pc:08x}: {inst:08x} | {:x?} cpsr: {:08x}", self.state.gpr, self.state.cpsr.0);
+    }
+
+    #[cfg(not(feature = "log_state"))]
+    fn log_state(&mut self) {}
 
     fn handle_interrupt(&mut self) {
         self.halted = false;

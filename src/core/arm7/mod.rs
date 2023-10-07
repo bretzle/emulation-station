@@ -43,7 +43,7 @@ impl Arm7 {
         self.get_memory().write_half(0x04000504, 0x0200); // soundbias
 
         // enter system mode
-        self.cpu.set_cpsr(StatusReg(0x1f));
+        self.cpu.set_cpsr(StatusReg(0xdf));
 
         use GPR::*;
         let entrypoint = self.system.cartridge.get_arm7_entrypoint();

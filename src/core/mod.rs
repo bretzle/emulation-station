@@ -116,7 +116,7 @@ impl System {
         while self.scheduler.get_current_time() < frame_end {
             let mut cycles = self.scheduler.get_event_time() - self.scheduler.get_current_time();
 
-            if !self.arm9.is_halted() {
+            if !self.arm7.cpu.is_halted() || !self.arm9.is_halted() {
                 cycles = cycles.min(16);
             }
 
