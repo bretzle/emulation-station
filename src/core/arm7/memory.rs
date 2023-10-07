@@ -251,8 +251,8 @@ impl MmioMemory for Arm7Memory {
                 0xffff0000: val |= self.system.video_unit.read_vcount() << 16,
             }},
             MMIO_DMA_LENGTH3 => handle! { MASK => {
-                0x0000ffff: val |= self.system.dma9.read_length(3),
-                0xffff0000: val |= (self.system.dma9.read_control(3) as u32) << 16,
+                0x0000ffff: val |= self.system.dma7.read_length(3),
+                0xffff0000: val |= (self.system.dma7.read_control(3) as u32) << 16,
             }},
             MMIO_TIMER0 => handle! { MASK => {
                 0x0000ffff: val |= self.system.timer7.read_length(0) as u32,
@@ -299,6 +299,7 @@ impl MmioMemory for Arm7Memory {
             }},
             MMIO_POWCNT1 => return self.system.video_unit.read_powcnt1(),
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
+            MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDCNT => return self.system.spu.read_soundcnt() as u32,
             MMIO_WIFI_START..=MMIO_WIFI_END => { /* todo: wifi */ }
             _ => warn!(

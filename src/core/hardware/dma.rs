@@ -6,7 +6,7 @@ use crate::arm::cpu::Arch;
 use crate::bitfield;
 use crate::core::scheduler::EventInfo;
 use crate::core::System;
-use crate::util::Shared;
+use crate::util::{set, Shared};
 
 const ADJUST_LUT: [[i32; 4]; 2] = [[2, -2, 0, 2], [4, -4, 0, 4]];
 
@@ -171,9 +171,7 @@ impl Dma {
 
         channel.length &= 0xffff;
         channel.length |= (val & 0x1f & mask) << 16;
-        let val = val as u16;
-        let mask = mask as u16;
-        channel.control.0 = (channel.control.0 & !mask) | (val & mask);
+        set(&mut channel.control.0, val as u16, mask as u16);
 
         if channel.control.enable() && channel.control.timing() == DmaTiming::GXFIFO {
             todo!()
@@ -214,7 +212,10 @@ impl Dma {
     }
 
     pub const fn read_control(&self, id: usize) -> u16 {
-        self.channels[id].control.0
+        let left = ((self.channels[id].length >> 16) & 0x1f) as u16;
+        let right = self.channels[id].control.0;
+        let result = left | right;
+        result
     }
 
     pub const fn read_dmafill(&self, addr: u32) -> u32 {

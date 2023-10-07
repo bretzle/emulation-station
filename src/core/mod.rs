@@ -60,7 +60,7 @@ impl System {
             let arm9 = Arm9::new(system);
             Self {
                 cartridge: Cartridge::new(system),
-                video_unit: VideoUnit::new(system),
+                video_unit: VideoUnit::new(system, &arm7.irq, &arm9.irq),
                 input: Input::new(),
                 spu: Spu::new(),
                 dma7: Dma::new(Arch::ARMv4, system),

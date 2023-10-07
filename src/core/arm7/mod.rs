@@ -30,6 +30,7 @@ impl Arm7 {
 
     pub fn reset(&mut self) {
         self.cpu.memory.reset();
+        self.cpu.reset();
     }
 
     pub fn run(&mut self, cycles: u64) {

@@ -59,6 +59,15 @@ impl Cpu {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.state = State::default();
+        self.state.cpsr.0 = 0xd3;
+        self.switch_mode(Mode::Supervisor);
+        self.pipeline.fill(0);
+        self.irq = false;
+        self.halted = false;
+    }
+
     pub(super) fn illegal_instruction(&mut self, instruction: u32) {
         panic!(
             "Interpreter: illegal instruction {instruction:08x} at pc = {:08x}",
@@ -165,7 +174,7 @@ impl Cpu {
     }
 
     pub fn thumb_flush_pipeline(&mut self) {
-        // debug_assert!(self.state.cpsr.thumb());
+        assert!(self.state.cpsr.thumb());
         self.state.gpr[15] &= !1;
         self.pipeline[0] = self.code_read_half(self.state.gpr[15]) as u32;
         self.pipeline[1] = self.code_read_half(self.state.gpr[15] + 2) as u32;
@@ -173,7 +182,7 @@ impl Cpu {
     }
 
     pub fn arm_flush_pipeline(&mut self) {
-        // debug_assert!(!self.state.cpsr.thumb());
+        assert!(!self.state.cpsr.thumb());
         self.state.gpr[15] &= !3;
         self.pipeline[0] = self.code_read_word(self.state.gpr[15]);
         self.pipeline[1] = self.code_read_word(self.state.gpr[15] + 4);

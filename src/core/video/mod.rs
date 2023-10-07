@@ -5,6 +5,7 @@ use log::error;
 
 use crate::bitfield;
 use crate::core::hardware::dma::DmaTiming;
+use crate::core::hardware::irq::{Irq, IrqSource};
 use crate::core::scheduler::EventInfo;
 use crate::core::video::ppu::Ppu;
 use crate::core::video::vram::{Vram, VramBank};
@@ -80,15 +81,15 @@ pub struct VideoUnit {
     dispstat7: DispStat,
     dispstat9: DispStat,
     dispcapcnt: DispCapCnt,
-    irq7: (),
-    irq9: (),
+    irq7: Shared<Irq>,
+    irq9: Shared<Irq>,
 
     scanline_start_event: Rc<EventInfo>,
     scanline_end_event: Rc<EventInfo>,
 }
 
 impl VideoUnit {
-    pub fn new(system: &Shared<System>) -> Self {
+    pub fn new(system: &Shared<System>, irq7: &Shared<Irq>, irq9: &Shared<Irq>) -> Self {
         let vram = Vram::new();
         let mut palette_ram = Box::new([0; 0x800]);
         let mut oam = Box::new([0; 0x800]);
@@ -121,8 +122,8 @@ impl VideoUnit {
             dispstat7: DispStat(0),
             dispstat9: DispStat(0),
             dispcapcnt: DispCapCnt(0),
-            irq7: (),
-            irq9: (),
+            irq7: irq7.clone(),
+            irq9: irq9.clone(),
 
             scanline_start_event: Rc::default(),
             scanline_end_event: Rc::default(),
@@ -201,10 +202,10 @@ impl VideoUnit {
             self.dispstat9.set_vblank(true);
 
             if self.dispstat7.vblank_irq() {
-                todo!()
+                self.irq7.raise(IrqSource::VBlank)
             }
             if self.dispstat9.vblank_irq() {
-                todo!()
+                self.irq9.raise(IrqSource::VBlank)
             }
 
             self.system.dma9.trigger(DmaTiming::VBlank);

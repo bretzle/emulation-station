@@ -2,7 +2,7 @@ use std::mem::transmute;
 
 use log::error;
 
-use crate::core::video::ppu::Ppu;
+use crate::core::video::ppu::{COLOR_TRANSPARENT, Ppu};
 use crate::util::{bit, get_field};
 
 const OBJECT_DIMENSIONS: [[[u32; 2]; 4]; 4] = [[[8, 8], [16, 16], [32, 32], [64, 64]], [[16, 8], [32, 8], [32, 16], [64, 32]], [[8, 16], [8, 32], [16, 32], [32, 64]], [[0, 0], [0, 0], [0, 0], [0, 0]]];
@@ -59,10 +59,10 @@ impl Ppu {
                 y -= 256
             }
 
-            let width = OBJECT_DIMENSIONS[shape as usize][size as usize][0] as i32;
-            let height = OBJECT_DIMENSIONS[shape as usize][size as usize][1] as i32;
-            let half_width = width / 2;
-            let half_height = height / 2;
+            let width = OBJECT_DIMENSIONS[shape as usize][size as usize][0];
+            let height = OBJECT_DIMENSIONS[shape as usize][size as usize][1];
+            let half_width = (width / 2) as i32;
+            let half_height = (height / 2) as i32;
 
             x += half_width as u32;
             y += half_height as u32;
@@ -98,8 +98,68 @@ impl Ppu {
             }
 
             for local_x in -half_width..=half_width {
-                todo!()
+                let local_x = local_x as u32;
+                let mut color = 0;
+                let mut global_x = (x + local_x) as i32;
+                if global_x < 0 || global_x >= 256 {
+                    continue;
+                }
+
+                let mut transformed_x = ((((affine_parameters[0] as u32 * local_x) + (affine_parameters[1] as u32 * local_y as u32)) >> 8) + (width as u32 / 2));
+                let mut transformed_y = ((((affine_parameters[2] as u32 * local_x) + (affine_parameters[3] as u32 * local_y as u32)) >> 8) + (height as u32 / 2));
+
+                // make sure the transformed coordinates are still in bounds
+                if transformed_x < 0 || transformed_y < 0 || transformed_x >= width || transformed_y >= height {
+                    continue;
+                }
+
+                if horizontal_flip {
+                    transformed_x = width - transformed_x - 1;
+                }
+
+                if vertical_flip {
+                    transformed_y = height - transformed_y - 1;
+                }
+
+                let inner_tile_x = transformed_x % 8;
+                let inner_tile_y = transformed_y % 8;
+                let tile_x = transformed_x / 8;
+                let tile_y = transformed_y / 8;
+                let mut tile_addr = 0;
+
+                if mode == ObjectMode::Bitmap {
+                    todo!()
+                } else if is_8bpp {
+                    todo!()
+                } else {
+                    if self.dispcnt.tile_obj_mapping() {
+                        tile_addr = (tile_number * (32 << self.dispcnt.tile_obj_1d_boundary())) + (tile_y * width * 4) as u32;
+                    } else {
+                        error!("PPU: handle 2d mapping 8bpp");
+                    }
+
+                    tile_addr += (tile_x * 32) as u32;
+                    color = self.decode_obj_pixel_4bpp(tile_addr, palette_number, inner_tile_x, inner_tile_y);
+                }
+
+                let target_obj = &mut self.obj_buffer[global_x as usize];
+                if color != COLOR_TRANSPARENT {
+                    if priority < target_obj.priority {
+                        target_obj.color = color;
+                        target_obj.priority = priority;
+                    }
+                }
             }
+        }
+    }
+
+    fn decode_obj_pixel_4bpp(&mut self, base: u32, number: u32, x: u32, y: u32) -> u16 {
+        let indices = self.obj.read::<u8>(base + (y * 4) + (x / 2));
+        let index = (indices >> (4 * (x & 0x1))) & 0xf;
+        if index == 0 {
+            COLOR_TRANSPARENT
+        } else {
+            unsafe { read(self.palette_ram.as_ref(), ((0x200 + (number * 32) + (index as u32 * 2)) & 0x3ff) as usize) }
         }
     }
 }
