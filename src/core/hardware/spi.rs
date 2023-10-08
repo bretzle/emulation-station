@@ -1,6 +1,7 @@
-use log::debug;
+use log::{debug, error};
 
 use crate::bitfield;
+use crate::core::hardware::irq::IrqSource;
 use crate::core::System;
 use crate::util::Shared;
 
@@ -144,11 +145,44 @@ impl Spi {
             self.spidata = 0;
         } else {
             match self.spicnt.device() {
-                Device::Powerman => todo!(),
-                Device::Firmware => todo!(),
+                Device::Powerman => self.spidata = 0, // todo: figure out what to actually do here
+                Device::Firmware => self.firmware_transfer(val),
                 Device::Touchscreen => todo!(),
                 Device::Reserved => todo!(),
             }
+        }
+
+        if self.spicnt.chipselect_hold() {
+            self.write_count += 1;
+        } else {
+            self.write_count = 0;
+        }
+
+        if self.spicnt.irq() {
+            self.system.arm7.irq.raise(IrqSource::SPI);
+        }
+    }
+
+    fn firmware_transfer(&mut self, val: u8) {
+        if self.spicnt.transfer_halfwords() {
+            error!("SPI: handle 16-bit transfer")
+        }
+
+        match self.command {
+            0x03 => {
+                if self.write_count < 4 {
+                    self.address |= (val as u32) << ((3 - self.write_count) * 8)
+                } else {
+                    if self.address >= 0x40000 {
+                        error!("SPI: illegal firmware address")
+                    }
+
+                    self.spidata = self.firmware[self.address as usize];
+                    self.address += if self.spicnt.transfer_halfwords() { 2 } else { 1 };
+                }
+            }
+            0x05 => todo!(),
+            _ => error!("SPI: unimplemented firmware command {:02x}", self.command),
         }
     }
 }

@@ -47,7 +47,7 @@ impl Ppu {
 
             for j in 0..8 {
                 let offset = tile as usize + j - ((x as usize) % 8);
-                if offset < 0 || offset >= 256 {
+                if /*offset < 0 ||*/ offset >= 256 {
                     continue;
                 }
 

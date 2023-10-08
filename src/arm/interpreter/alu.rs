@@ -27,7 +27,7 @@ impl Cpu {
     pub fn alu_cmn(&mut self, op1: u32, op2: u32) {
         let result = op1 + op2;
         self.set_nz(result);
-        self.state.cpsr.set_c(op1 < op2);
+        self.state.cpsr.set_c(result < op1);
         self.state.cpsr.set_v(add_overflow(op1, op2, result))
     }
 

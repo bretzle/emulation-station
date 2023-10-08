@@ -445,6 +445,16 @@ impl MmioMemory for Arm9Memory {
                 0x00ff0000: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::C) as u32) << 16,
                 0xff000000: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::D) as u32) << 24
             }},
+            MMIO_VRAMCNT2 => handle! { MASK => {
+                0x000000ff: val |= self.system.video_unit.vram.read_vramcnt(VramBank::E) as u32,
+                0x0000ff00: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::F) as u32) << 8,
+                0x00ff0000: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::G) as u32) << 16,
+                0xff000000: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::H) as u32) << 24
+            }},
+            MMIO_VRAMCNT3 => handle! { MASK => {
+                0x00ff: val |= self.system.video_unit.vram.read_vramcnt(VramBank::H) as u32,
+                0xff00: val |= (self.system.video_unit.vram.read_vramcnt(VramBank::I) as u32) << 8
+            }},
             MMIO_DIVCNT => return self.system.math_unit.read_divcnt() as _,
             MMIO_DIV_NUMER => return self.system.math_unit.read_div_numer() as _,
             MMIO_DIV_NUMER2 => return (self.system.math_unit.read_div_numer() >> 32) as _,

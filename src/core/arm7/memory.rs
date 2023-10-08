@@ -37,6 +37,7 @@ const MMIO_TIMER0: u32 = mmio!(0x04000100);
 const MMIO_TIMER1: u32 = mmio!(0x04000104);
 const MMIO_TIMER2: u32 = mmio!(0x04000108);
 const MMIO_TIMER3: u32 = mmio!(0x0400010c);
+const MMIO_KEYINPUT: u32 = mmio!(0x04000130);
 const MMIO_RCNT: u32 = mmio!(0x04000134);
 const MMIO_RTC: u32 = mmio!(0x04000138);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
@@ -269,6 +270,10 @@ impl MmioMemory for Arm7Memory {
             MMIO_TIMER3 => handle! { MASK => {
                 0x0000ffff: val |= self.system.timer7.read_length(3) as u32,
                 0xffff0000: val |= (self.system.timer7.read_control(3) as u32) << 16,
+            }},
+            MMIO_KEYINPUT => handle! { MASK => {
+                0x0000ffff: val |= self.system.input.read_keyinput() as u32,
+                0xffff0000: error!("ARM7Memory: handle keycnt read")
             }},
             MMIO_RCNT => handle! { MASK => {
                 0x0000ffff: val |= self.rcnt as u32,

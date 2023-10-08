@@ -224,6 +224,7 @@ impl Cpu {
             LoadStoreRegisterOpcode::LDR => self.state.gpr[rd as usize] = self.read_word_rotate(addr),
             LoadStoreRegisterOpcode::LDRB => self.state.gpr[rd as usize] = self.memory.read_byte(addr) as u32,
         }
+        self.state.gpr[15] += 2;
     }
 
     pub(in crate::arm) fn thumb_load_store_signed(&mut self, instruction: u32) {

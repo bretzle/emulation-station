@@ -214,8 +214,7 @@ impl Dma {
     pub const fn read_control(&self, id: usize) -> u16 {
         let left = ((self.channels[id].length >> 16) & 0x1f) as u16;
         let right = self.channels[id].control.0;
-        let result = left | right;
-        result
+        left | right
     }
 
     pub const fn read_dmafill(&self, addr: u32) -> u32 {

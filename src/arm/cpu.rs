@@ -103,7 +103,10 @@ impl Cpu {
             self.instruction = self.pipeline[0];
             self.pipeline[0] = self.pipeline[1];
 
-            static mut COUNT: [u32; 2] = [0; 2];
+            // static mut COUNT: [u32; 2] = [0; 2];
+            // if self.arch == Arch::ARMv5 && unsafe { COUNT[1] == 264894 } {
+            //     println!("breakpoint")
+            // }
 
             if self.state.cpsr.thumb() {
                 self.state.gpr[15] &= !0x1;
@@ -112,7 +115,7 @@ impl Cpu {
 
                 (handler)(self, self.instruction);
                 self.log_state();
-                unsafe { COUNT[self.arch as usize] += 1 }
+                // unsafe { COUNT[self.arch as usize] += 1 }
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
@@ -120,7 +123,7 @@ impl Cpu {
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                     self.log_state();
-                    unsafe { COUNT[self.arch as usize] += 1 }
+                    // unsafe { COUNT[self.arch as usize] += 1 }
                 } else {
                     self.state.gpr[15] += 4;
                 }

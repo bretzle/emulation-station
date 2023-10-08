@@ -49,6 +49,7 @@ impl Scheduler {
     }
 
     pub fn tick(&mut self, cycles: u64) {
+        // trace!("event_time: {}, current_time: {}, cycles: {cycles}", self.get_event_time(), self.get_current_time());
         self.current_time += cycles;
     }
 
@@ -56,7 +57,10 @@ impl Scheduler {
         let mut to_remove = vec![];
         for (idx, event) in self.events.iter().enumerate() {
             if event.time <= self.current_time {
-                // trace!("running '{}' at {}", event.info.name, event.time);
+                let name = &event.info.name;
+                // if event.info.name.contains("DMA") {
+                //     trace!("running '{}' at {}", event.info.name, event.time);
+                // }
                 to_remove.push(idx);
                 (event.info.callback)(&mut self.system);
             }
@@ -68,6 +72,7 @@ impl Scheduler {
     }
 
     pub fn add_event(&mut self, delay: u64, info: &Rc<EventInfo>) {
+        // trace!("adding event '{}', delay: {}, current: {}", info.name, delay, self.current_time);
         let time = self.current_time + delay;
         let event = Event { time, info: info.clone() };
         let index = self.calc_event_index(&event);
@@ -94,7 +99,7 @@ impl Scheduler {
 
     pub fn get_event_time(&self) -> u64 {
         assert!(!self.events.is_empty());
-        self.events.get(0).map(|e| e.time).unwrap_or(u64::MAX)
+        self.events[0].time
     }
 
     fn calc_event_index(&self, event: &Event) -> usize {

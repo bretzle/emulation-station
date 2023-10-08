@@ -217,7 +217,7 @@ impl VideoUnit {
         if self.dispstat7.lyc_setting() | self.dispstat7.lyc_setting_msb() << 1 == self.vcount {
             self.dispstat7.set_lyc(true);
             if self.dispstat7.lyc_irq() {
-                todo!()
+                self.irq7.raise(IrqSource::VCounter)
             }
         } else {
             self.dispstat7.set_lyc(false);
@@ -226,7 +226,7 @@ impl VideoUnit {
         if self.dispstat9.lyc_setting() | self.dispstat9.lyc_setting_msb() << 1 == self.vcount {
             self.dispstat9.set_lyc(true);
             if self.dispstat9.lyc_irq() {
-                todo!()
+                self.irq9.raise(IrqSource::VCounter)
             }
         } else {
             self.dispstat9.set_lyc(false);

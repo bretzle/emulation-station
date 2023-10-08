@@ -109,7 +109,7 @@ impl Ppu {
                 let mut transformed_y = ((((affine_parameters[2] as u32 * local_x) + (affine_parameters[3] as u32 * local_y as u32)) >> 8) + (height as u32 / 2));
 
                 // make sure the transformed coordinates are still in bounds
-                if transformed_x < 0 || transformed_y < 0 || transformed_x >= width || transformed_y >= height {
+                if /*transformed_x < 0 || transformed_y < 0 ||*/ transformed_x >= width || transformed_y >= height {
                     continue;
                 }
 
