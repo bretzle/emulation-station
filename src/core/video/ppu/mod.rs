@@ -105,9 +105,9 @@ bitfield! {
 
 bitfield! {
     struct BldAlpha(u16) {
-        eva: u16 => 0 | 4,
+        eva: u32 => 0 | 4,
         // 5 | 7
-        evb: u16 => 8 | 12
+        evb: u32 => 8 | 12
         // 13 | 15
     }
 }

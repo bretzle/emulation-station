@@ -143,6 +143,10 @@ impl Cartridge {
     }
 
     pub fn write_auxspidata(&mut self, val: u8) {
+        if self.backup == () {
+            return;
+        }
+
         todo!()
     }
 

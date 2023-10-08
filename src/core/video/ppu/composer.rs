@@ -125,7 +125,39 @@ impl Ppu {
     }
 
     fn blend(&self, top: u32, bottom: u32, effect: SpecialEffect) -> u32 {
-        todo!()
+        let r1 = top & 0x3f;
+        let g1 = (top >> 6) & 0x3f;
+        let b1 = (top >> 12) & 0x3f;
+
+        match effect {
+            SpecialEffect::None => top,
+            SpecialEffect::AlphaBlending => {
+                let eva = self.bldalpha.eva().min(16);
+                let evb = self.bldalpha.evb().min(16);
+                let r2 = bottom & 0x3f;
+                let g2 = (bottom >> 6) & 0x3f;
+                let b2 = (bottom >> 12) & 0x3f;
+
+                let r = ((r1 * eva + r2 * evb + 8) / 16).min(63);
+                let b = ((b1 * eva + b2 * evb + 8) / 16).min(63);
+                let g = ((g1 * eva + g2 * evb + 8) / 16).min(63);
+                (b << 12) | (g << 6) | r
+            }
+            SpecialEffect::BrightnessIncrease => {
+                let evy = self.bldy.evy().min(16);
+                let r = r1 + ((63 - r1) * evy + 8) / 16;
+                let g = g1 + ((63 - g1) * evy + 8) / 16;
+                let b = b1 + ((63 - b1) * evy + 8) / 16;
+                (b << 12) | (g << 6) | r
+            }
+            SpecialEffect::BrightnessDecrease => {
+                let evy = self.bldy.evy().min(16);
+                let r = r1 - (r1 * evy + 7) / 16;
+                let g = g1 - (g1 * evy + 7) / 16;
+                let b = b1 - (b1 * evy + 7) / 16;
+                (b << 12) | (g << 6) | r
+            }
+        }
     }
 }
 

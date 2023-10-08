@@ -115,7 +115,7 @@ impl Vram {
         self.bgb_extended_palette.reset();
     }
 
-    pub fn read(&mut self, addr: u32) -> u32 {
+    pub fn read<T: Default + BitOrAssign + Copy>(&mut self, addr: u32) -> T {
         let region = (addr >> 20) & 0xf;
         match region {
             0x0 | 0x1 => self.bga.read(addr),

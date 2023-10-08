@@ -32,6 +32,7 @@ impl Shr<usize> for DmaTiming {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 enum AddressMode {
     Increment = 0,
     Decrement = 1,
@@ -147,7 +148,15 @@ impl Dma {
         }
 
         if channel.control.repeat() && channel.control.timing() != DmaTiming::Immediate {
-            todo!()
+            channel.internal_length = channel.length;
+
+            if channel.control.destination_control() == AddressMode::Reload {
+                channel.internal_destination = channel.destination
+            }
+
+            if channel.control.timing() == DmaTiming::GXFIFO {
+                todo!("DMA: handle gxfifo transfers")
+            }
         } else {
             channel.control.set_enable(false);
         }

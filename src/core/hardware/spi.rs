@@ -3,7 +3,7 @@ use log::{debug, error};
 use crate::bitfield;
 use crate::core::hardware::irq::IrqSource;
 use crate::core::System;
-use crate::util::Shared;
+use crate::util::{get_field, Shared};
 
 #[repr(u16)]
 enum Device {
@@ -147,7 +147,7 @@ impl Spi {
             match self.spicnt.device() {
                 Device::Powerman => self.spidata = 0, // todo: figure out what to actually do here
                 Device::Firmware => self.firmware_transfer(val),
-                Device::Touchscreen => todo!(),
+                Device::Touchscreen => self.touchscreen_transfer(val),
                 Device::Reserved => todo!(),
             }
         }
@@ -181,8 +181,32 @@ impl Spi {
                     self.address += if self.spicnt.transfer_halfwords() { 2 } else { 1 };
                 }
             }
-            0x05 => todo!(),
+            0x05 => self.spidata = self.write_in_progress as u8 | ((self.write_enable_latch as u8) << 1),
             _ => error!("SPI: unimplemented firmware command {:02x}", self.command),
         }
+    }
+
+    fn touchscreen_transfer(&mut self, val: u8) {
+        let upper = (self.output >> 8) as u8;
+        self.output <<= 8;
+
+        if val & (1 << 7) != 0 {
+            let channel = get_field::<4, 3>(val as u32);
+            let mut touch_x = 0;
+            let mut touch_y = 0xfff;
+
+            if self.system.input.touch_down() {
+                touch_x = (self.system.input.point.x as u16 - self.scr_x1 as u16 + 1) * (self.adc_x2 - self.adc_x1) / (self.scr_x2 - self.scr_x1) as u16 + self.adc_x1;
+                touch_y = (self.system.input.point.y as u16 - self.scr_y1 as u16 + 1) * (self.adc_y2 - self.adc_y1) / (self.scr_y2 - self.scr_y1) as u16 + self.adc_y1;
+
+                match channel {
+                    1 => self.output = touch_y << 3,
+                    5 => self.output = touch_x << 3,
+                    _ => self.spidata = 0
+                }
+            }
+        }
+
+        self.spidata = upper;
     }
 }

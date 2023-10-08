@@ -43,6 +43,7 @@ const MMIO_RTC: u32 = mmio!(0x04000138);
 const MMIO_IPCSYNC: u32 = mmio!(0x04000180);
 const MMIO_IPCFIFOCNT: u32 = mmio!(0x04000184);
 const MMIO_IPCFIFOSEND: u32 = mmio!(0x04000188);
+const MMIO_AUXSPICNT: u32 = mmio!(0x040001a0);
 const MMIO_SPICNT: u32 = mmio!(0x040001c0);
 const MMIO_EXMEMSTAT: u32 = mmio!(0x04000204);
 const MMIO_IME: u32 = mmio!(0x04000208);
@@ -55,6 +56,7 @@ const MMIO_SPU_CHANNEL_BASE: u32 = mmio!(0x04000400);
 const MMIO_SPU_CHANNEL_END: u32 = mmio!(0x040004fc);
 const MMIO_SOUNDCNT: u32 = mmio!(0x04000500);
 const MMIO_SOUNDBIAS: u32 = mmio!(0x04000504);
+const MMIO_SOUND_CAPTURE: u32 = mmio!(0x04000508);
 const MMIO_IPCFIFORECV: u32 = mmio!(0x04100000);
 const MMIO_WIFI_START: u32 = mmio!(0x04800000);
 const MMIO_WIFI_END: u32 = mmio!(0x04900000);
@@ -284,6 +286,10 @@ impl MmioMemory for Arm7Memory {
             }},
             MMIO_IPCSYNC => return self.system.ipc.read_ipcsync(Arch::ARMv4),
             MMIO_IPCFIFOCNT => return self.system.ipc.read_ipcfifocnt(Arch::ARMv4) as u32,
+            MMIO_AUXSPICNT => handle! { MASK => {
+                0x0000ffff: val |= self.system.cartridge.read_auxspicnt() as u32,
+                0xffff0000: val |= (self.system.cartridge.read_auxspidata() as u32) << 16
+            }},
             MMIO_SPICNT => handle! { MASK => {
                 0x0000ffff: val |= self.system.spi.read_spicnt() as u32,
                 0xffff0000: val |= (self.system.spi.read_spidata() as u32) << 16,
@@ -306,6 +312,7 @@ impl MmioMemory for Arm7Memory {
             MMIO_IPCFIFORECV => return self.system.ipc.read_ipcfiforecv(Arch::ARMv4),
             MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDCNT => return self.system.spu.read_soundcnt() as u32,
+            MMIO_SOUND_CAPTURE => { /* todo: spu */ }
             MMIO_WIFI_START..=MMIO_WIFI_END => { /* todo: wifi */ }
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit  read {:08x}",
@@ -375,6 +382,10 @@ impl MmioMemory for Arm7Memory {
                 0xffff: self.system.ipc.write_ipcfifocnt(Arch::ARMv4, val as _, MASK as _)
             }},
             MMIO_IPCFIFOSEND => self.system.ipc.write_ipcfifosend(Arch::ARMv4, val),
+            MMIO_AUXSPICNT => handle! { MASK => {
+                0x0000ffff: self.system.cartridge.write_auxspicnt(val as _, MASK as _),
+                0xffff0000: self.system.cartridge.write_auxspidata((val >> 16) as _)
+            }},
             MMIO_SPICNT => handle! { MASK => {
                 0x0000ffff: self.system.spi.write_spicnt(val as _, MASK & 0xffff),
                 0xffff0000: self.system.spi.write_spidata((val >> 16) as _),
@@ -394,6 +405,7 @@ impl MmioMemory for Arm7Memory {
             MMIO_SPU_CHANNEL_BASE..=MMIO_SPU_CHANNEL_END => { /* todo: spu */ }
             MMIO_SOUNDCNT => self.system.spu.write_soundcnt(val as _, MASK as _),
             MMIO_SOUNDBIAS => warn!("todo: sound bias"),
+            MMIO_SOUND_CAPTURE => { /* todo: spu */ }
             MMIO_WIFI_START..=MMIO_WIFI_END => { /* todo: wifi */ }
             _ => warn!(
                 "ARM7Memory: unmapped {}-bit write {:08x} = {:08x}",

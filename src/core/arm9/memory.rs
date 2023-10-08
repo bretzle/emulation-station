@@ -269,7 +269,7 @@ impl Memory for Arm9Memory {
         match addr >> 24 {
             0x04 => self.mmio_read_byte(addr),
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.read(addr),
             0x07 => todo!(),
             0x08 | 0x09 => todo!(),
             _ => {
@@ -288,7 +288,7 @@ impl Memory for Arm9Memory {
         match addr >> 24 {
             0x04 => self.mmio_read_half(addr),
             0x05 => todo!(),
-            0x06 => todo!(),
+            0x06 => self.system.video_unit.vram.read(addr),
             0x07 => todo!(),
             0x08 | 0x09 => {
                 if bit::<7>(self.system.exmemcnt as _) {

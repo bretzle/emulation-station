@@ -35,7 +35,7 @@ bitfield! {
 }
 
 pub struct Input {
-    point: Point,
+    pub point: Point,
     keyinput: KeyInput,
     extkeyin: u16,
 }
