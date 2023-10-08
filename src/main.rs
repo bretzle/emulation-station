@@ -8,8 +8,9 @@
 
 use std::fs::File;
 
+use color_backtrace::termcolor::ColorChoice;
 use log::LevelFilter;
-use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, TerminalMode, TermLogger, WriteLogger};
+use tinylog::*;
 
 use crate::application::Application;
 
@@ -21,12 +22,9 @@ mod util;
 
 fn main() {
     color_backtrace::install();
+
     let config = ConfigBuilder::default().build();
-    CombinedLogger::init(vec![
-        TermLogger::new(LevelFilter::Trace, config.clone(), TerminalMode::Mixed, ColorChoice::Auto),
-        WriteLogger::new(LevelFilter::Trace, config, File::create("out.log").unwrap()),
-    ])
-    .unwrap();
+    TinyLogger::init(LevelFilter::Trace, config, Some(ColorChoice::Auto), Some("out.log")).unwrap();
 
     let mut app = Application::new();
     app.boot_game("roms/Pokemon Mystery Dungeon.nds");
