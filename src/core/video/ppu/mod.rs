@@ -9,6 +9,7 @@ mod composer;
 mod text;
 mod tile_decoder;
 mod object;
+mod affine;
 
 const COLOR_TRANSPARENT: u16 = 0x8000;
 
@@ -244,8 +245,20 @@ impl Ppu {
             self.mosaic_bg_vertical_counter += 1;
         }
 
+        // update internal affine registers
+        // affine registers don't get updated in mode 0
         if self.dispcnt.bg_mode() != 0 {
-            todo!()
+            for i in 0..2 {
+                if self.bgcnt[i + 2].mosaic() && self.mosaic.bg_height() != 0 {
+                    if self.mosaic_bg_vertical_counter == 0 {
+                        self.internal_x[i] += self.mosaic.bg_height() as i32 * self.bgpb[i] as i32;
+                        self.internal_y[i] += self.mosaic.bg_height() as i32 * self.bgpd[i] as i32;
+                    }
+                } else {
+                    self.internal_x[i] += self.bgpb[i] as i32;
+                    self.internal_y[i] += self.bgpd[i] as i32;
+                }
+            }
         }
     }
 
@@ -382,8 +395,8 @@ impl Ppu {
         if self.dispcnt.enable_bg2() {
             match self.dispcnt.bg_mode() {
                 0 | 1 | 3 => self.render_text(2, line),
-                2 | 4 => todo!("render_affine"),
-                5 => todo!("render_extended"),
+                2 | 4 => self.render_affine(2),
+                5 => self.render_extended(2),
                 6 => todo!("render_large"),
                 _ => unreachable!(),
             }
@@ -392,8 +405,8 @@ impl Ppu {
         if self.dispcnt.enable_bg3() {
             match self.dispcnt.bg_mode() {
                 0 => self.render_text(3, line),
-                1 | 2 => todo!("render_affine"),
-                3 | 4 | 5 => todo!("render_extended"),
+                1 | 2 => self.render_affine(3),
+                3 | 4 | 5 => self.render_extended(3),
                 _ => unreachable!(),
             }
         }

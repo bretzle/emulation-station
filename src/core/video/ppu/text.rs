@@ -12,7 +12,7 @@ impl Ppu {
         let y = ((line + self.bgvofs[id]) % 512) as u32;
         let mut screen_base = (self.dispcnt.screen_base() * 65536) + (self.bgcnt[id].screen_base() * 2048) + ((y / 8) % 32) * 64;
         let character_base = (self.dispcnt.character_base() * 65536) + (self.bgcnt[id].character_base() * 16384);
-        let extended_palette_slot = id | (self.bgcnt[id].wraparound_ext_palette_slot() as usize * 2);
+        let extended_palette_slot = id as u32 | (self.bgcnt[id].wraparound_ext_palette_slot() as u32 * 2);
         let screen_width = TEXT_DIMENSIONS[self.bgcnt[id].size()][0];
         let screen_height = TEXT_DIMENSIONS[self.bgcnt[id].size()][1];
 
@@ -40,7 +40,7 @@ impl Ppu {
             let palette_number = get_field::<12, 4>(tile_info);
 
             pixels = if self.bgcnt[id].palette_8bpp() {
-                todo!()
+                self.decode_tile_row_8bpp(character_base, tile_number, palette_number, y, horizontal_flip, vertical_flip, extended_palette_slot)
             } else {
                 self.decode_tile_row_4bpp(character_base, tile_number, palette_number, y, horizontal_flip, vertical_flip)
             };

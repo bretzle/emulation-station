@@ -36,7 +36,7 @@ impl Ppu {
                 read::<u16>(oam, (i * 8) + 2) as u32,
                 read::<u16>(oam, (i * 8) + 4) as u32,
             ];
-            let mut affine_parameters = [0i16; 4];
+            let mut affine_parameters = [0; 4];
 
             let mut y = get_field::<0, 8>(attributes[0]);
             let affine = bit::<8>(attributes[0]);
@@ -98,15 +98,13 @@ impl Ppu {
             }
 
             for local_x in -half_width..=half_width {
-                let local_x = local_x as u32;
-                let mut color = 0;
-                let mut global_x = (x + local_x) as i32;
+                let mut global_x = (x as i32 + local_x);
                 if global_x < 0 || global_x >= 256 {
                     continue;
                 }
 
-                let mut transformed_x = ((((affine_parameters[0] as u32 * local_x) + (affine_parameters[1] as u32 * local_y as u32)) >> 8) + (width as u32 / 2));
-                let mut transformed_y = ((((affine_parameters[2] as u32 * local_x) + (affine_parameters[3] as u32 * local_y as u32)) >> 8) + (height as u32 / 2));
+                let mut transformed_x = ((((affine_parameters[0] * local_x) + (affine_parameters[1] * local_y)) >> 8) + half_width) as u32;
+                let mut transformed_y = ((((affine_parameters[2] * local_x) + (affine_parameters[3] * local_y)) >> 8) + half_height) as u32;
 
                 // make sure the transformed coordinates are still in bounds
                 if /*transformed_x < 0 || transformed_y < 0 ||*/ transformed_x >= width || transformed_y >= height {
@@ -127,10 +125,17 @@ impl Ppu {
                 let tile_y = transformed_y / 8;
                 let mut tile_addr = 0;
 
-                if mode == ObjectMode::Bitmap {
+                let color = if mode == ObjectMode::Bitmap {
                     todo!()
                 } else if is_8bpp {
-                    todo!()
+                    if self.dispcnt.tile_obj_mapping() {
+                        tile_addr = (tile_number * (32 << self.dispcnt.tile_obj_1d_boundary())) + (tile_y * width * 8);
+                    } else {
+                        error!("PPU: handle 2d mapping 8bb")
+                    }
+
+                    tile_addr += tile_x * 64;
+                    self.decode_obj_pixel_8bpp(tile_addr, palette_number, inner_tile_x, inner_tile_y)
                 } else {
                     if self.dispcnt.tile_obj_mapping() {
                         tile_addr = (tile_number * (32 << self.dispcnt.tile_obj_1d_boundary())) + (tile_y * width * 4) as u32;
@@ -139,8 +144,8 @@ impl Ppu {
                     }
 
                     tile_addr += (tile_x * 32) as u32;
-                    color = self.decode_obj_pixel_4bpp(tile_addr, palette_number, inner_tile_x, inner_tile_y);
-                }
+                    self.decode_obj_pixel_4bpp(tile_addr, palette_number, inner_tile_x, inner_tile_y)
+                };
 
                 let target_obj = &mut self.obj_buffer[global_x as usize];
                 if color != COLOR_TRANSPARENT {
@@ -160,6 +165,18 @@ impl Ppu {
             COLOR_TRANSPARENT
         } else {
             unsafe { read(self.palette_ram.as_ref(), ((0x200 + (number * 32) + (index as u32 * 2)) & 0x3ff) as usize) }
+        }
+    }
+
+    fn decode_obj_pixel_8bpp(&mut self, base: u32, number: u32, x: u32, y: u32) -> u16 {
+        let index = self.obj.read::<u8>(base + (y * 8) + x);
+
+        if index == 0 {
+            COLOR_TRANSPARENT
+        } else if self.dispcnt.obj_extended_palette() {
+            self.obj_extended_palette.read((number * 0xff + index as u32) * 2)
+        } else {
+            unsafe { read(self.palette_ram.as_ref(), (0x200 + (index as usize * 2)) & 0x3ff) }
         }
     }
 }
