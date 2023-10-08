@@ -181,7 +181,7 @@ impl System {
     }
 
     pub fn write_exmemcnt(&mut self, val: u16, mask: u16) {
-        self.exmemcnt = (self.exmemcnt & !mask) | (val | mask)
+        self.exmemcnt = (self.exmemcnt & !mask) | (val & mask)
     }
 
     pub const fn read_exmemstat(&self) -> u16 {

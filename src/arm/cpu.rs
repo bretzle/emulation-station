@@ -103,10 +103,16 @@ impl Cpu {
             self.instruction = self.pipeline[0];
             self.pipeline[0] = self.pipeline[1];
 
-            // static mut COUNT: [u32; 2] = [0; 2];
-            // if self.arch == Arch::ARMv5 && unsafe { COUNT[1] == 254392 } {
-            //     println!("breakpoint")
-            // }
+            static mut COUNT: [u32; 2] = [0; 2];
+            match self.arch {
+                Arch::ARMv4 if unsafe {COUNT[0] == 265220} => {
+                    println!("breakpoint");
+                }
+                Arch::ARMv5 if unsafe {COUNT[1] == 449428} => {
+                    println!("breakpoint");
+                }
+                _ => {}
+            }
 
             if self.state.cpsr.thumb() {
                 self.state.gpr[15] &= !0x1;
@@ -115,7 +121,7 @@ impl Cpu {
 
                 (handler)(self, self.instruction);
                 self.log_state();
-                // unsafe { COUNT[self.arch as usize] += 1 }
+                unsafe { COUNT[self.arch as usize] += 1 }
             } else {
                 self.state.gpr[15] &= !0x3;
                 self.pipeline[1] = self.code_read_word(self.state.gpr[15]);
@@ -123,7 +129,7 @@ impl Cpu {
                     let handler = self.decoder.decode_arm(self.instruction);
                     (handler)(self, self.instruction);
                     self.log_state();
-                    // unsafe { COUNT[self.arch as usize] += 1 }
+                    unsafe { COUNT[self.arch as usize] += 1 }
                 } else {
                     self.state.gpr[15] += 4;
                 }
@@ -142,8 +148,18 @@ impl Cpu {
         writeln!(self.debug, "{pc:08x}: {inst:08x} | {:x?} cpsr: {:08x}", self.state.gpr, self.state.cpsr.0);
     }
 
+    #[cfg(feature = "log_state")]
+    fn log_switch_mode(&mut self, old: Bank, new: Bank, old_reg: [u32; 7], new_reg: [u32; 7]) {
+        use std::io::Write;
+
+        writeln!(self.debug, "{old:?}->{new:?} | {old_reg:x?}->{new_reg:x?}");
+    }
+
     #[cfg(not(feature = "log_state"))]
     fn log_state(&mut self) {}
+
+    #[cfg(not(feature = "log_state"))]
+    fn log_switch_mode(&mut self, _: Bank, _: Bank, _: [u32; 7], _: [u32; 7]) {}
 
     fn handle_interrupt(&mut self) {
         self.halted = false;
@@ -230,6 +246,14 @@ impl Cpu {
         val.rotate_right(amount)
     }
 
+    pub fn read_half_rotate(&mut self, addr: u32) -> u32 {
+        let val = self.memory.read_half(addr) as u32;
+        if self.arch == Arch::ARMv4 && addr & 0x1 != 0 {
+            return val.rotate_right(8)
+        }
+        val
+    }
+
     pub fn undefined_exception(&mut self) {
         warn!(
             "Interpreter: undefined exception fired for instruction {:08x} at {:08x}",
@@ -256,6 +280,12 @@ impl Cpu {
         }
 
         self.state.cpsr.set_mode(mode);
+
+        self.log_switch_mode(old, new, self.state.gpr_banked[old as usize], self.state.gpr_banked[new as usize]);
+
+        if old == new {
+            return;
+        }
 
         if old == Bank::FIQ || new == Bank::FIQ {
             for i in 0..7 {

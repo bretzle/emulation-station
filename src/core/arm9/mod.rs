@@ -1,7 +1,7 @@
 use crate::arm::coprocessor::Coprocessor;
 use crate::arm::cpu::{Arch, Cpu};
 use crate::arm::memory::Memory;
-use crate::arm::state::{Mode, StatusReg, GPR};
+use crate::arm::state::{Mode, StatusReg, GPR, Bank};
 use crate::core::arm9::coprocessor::Arm9Coprocessor;
 use crate::core::arm9::memory::Arm9Memory;
 use crate::core::hardware::irq::Irq;
@@ -62,16 +62,28 @@ impl Arm9 {
         self.get_coprocessor().write(9, 1, 1, 0x00000020);
 
         // enter system mode
-        self.cpu.set_cpsr(StatusReg(0xdf));
+        // self.cpu.set_cpsr(StatusReg(0xdf));
 
         use GPR::*;
         let entrypoint = self.system.cartridge.get_arm9_entrypoint();
-        self.cpu.set_gpr(R12, entrypoint);
-        self.cpu.set_gpr(SP, 0x03002f7c);
-        self.cpu.set_gpr_banked(SP, Mode::Irq, 0x03003f80);
-        self.cpu.set_gpr_banked(SP, Mode::Supervisor, 0x03003fc0);
-        self.cpu.set_gpr(LR, entrypoint);
-        self.cpu.set_gpr(PC, entrypoint);
+        // self.cpu.set_gpr(R12, entrypoint);
+        // self.cpu.set_gpr(SP, 0x03002f7c);
+        // self.cpu.set_gpr_banked(SP, Mode::Irq, 0x03003f80);
+        // self.cpu.set_gpr_banked(SP, Mode::Supervisor, 0x03003fc0);
+        // self.cpu.set_gpr(LR, entrypoint);
+        // self.cpu.set_gpr(PC, entrypoint);
+
+        self.cpu.state.gpr[12] = entrypoint;
+        self.cpu.state.gpr[14] = entrypoint;
+        self.cpu.state.gpr[15] = entrypoint;
+
+        self.cpu.state.gpr[13] = 0x03002f7c;
+        self.cpu.state.gpr_banked[Bank::IRQ as usize][5] = 0x03003f80;
+        self.cpu.state.gpr_banked[Bank::SVC as usize][5] = 0x03003fc0;
+
+        self.cpu.set_cpsr(StatusReg(0xdf));
+        self.cpu.switch_mode(Mode::System);
+        self.cpu.arm_flush_pipeline();
     }
 
     pub fn get_memory(&mut self) -> &mut dyn Memory {

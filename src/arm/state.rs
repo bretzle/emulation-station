@@ -31,7 +31,7 @@ impl From<u32> for GPR {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Bank {
     USR = 0,
     FIQ = 1,

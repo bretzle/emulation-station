@@ -266,7 +266,7 @@ impl Cpu {
             }
             (true, _) => {
                 if load {
-                    self.state.gpr[rd as usize] = self.memory.read_half(addr) as u32;
+                    self.state.gpr[rd as usize] = self.read_half_rotate(addr);
                 } else {
                     self.memory.write_half(addr, self.state.gpr[rd as usize] as u16);
                 }
@@ -415,12 +415,7 @@ impl Cpu {
             }
 
             if load {
-                let val = self.memory.read_word(addr);
-                if user_switch_mode && i != 15 && i >= if self.state.cpsr.mode() == Mode::Fiq { 8 } else { 13 } {
-                    self.state.gpr_banked[Bank::USR as usize][i - 8] = val;
-                } else {
-                    self.state.gpr[i] = val;
-                }
+                self.state.gpr[i] = self.memory.read_word(addr);
             } else {
                 self.memory.write_word(addr, self.state.gpr[i]);
             }
