@@ -1,10 +1,12 @@
 use log::{debug, error};
 
 use crate::arm::coprocessor::{Coprocessor, Tcm};
+use crate::arm::cpu::Cpu;
 use crate::bitfield;
 use crate::util::Shared;
 
 pub struct Arm9Coprocessor {
+    cpu: Shared<Cpu>,
     itcm_cnt: Shared<Tcm>,
     dtcm_cnt: Shared<Tcm>,
 
@@ -16,8 +18,9 @@ pub struct Arm9Coprocessor {
 }
 
 impl Arm9Coprocessor {
-    pub fn new(itcm: &Shared<Tcm>, dtcm: &Shared<Tcm>) -> Self {
+    pub fn new(cpu: &Shared<Cpu>, itcm: &Shared<Tcm>, dtcm: &Shared<Tcm>) -> Self {
         Self {
+            cpu: cpu.clone(),
             itcm_cnt: itcm.clone(),
             dtcm_cnt: dtcm.clone(),
             control: Control(0),
@@ -75,6 +78,7 @@ impl Coprocessor for Arm9Coprocessor {
             0x070a04 => {}
             0x070e01 => {}
             0x070e02 => {}
+            0x070004 => self.cpu.update_halted(true),
             0x090100 => {
                 self.dtcm_control.0 = val;
                 self.dtcm_cnt.base = self.dtcm_control.base() << 12;

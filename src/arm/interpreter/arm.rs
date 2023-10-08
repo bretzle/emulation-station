@@ -401,6 +401,9 @@ impl Cpu {
         }
 
         let user_switch_mode = psr && (!load || !r15_in_rlist);
+        if user_switch_mode {
+            self.switch_mode(Mode::User)
+        }
 
         for i in first..16 {
             if rlist & (1 << i) == 0 {

@@ -29,6 +29,6 @@ fn main() {
     .unwrap();
 
     let mut app = Application::new();
-    app.boot_game("roms/yuugen-suite.nds");
+    app.boot_game("roms/fire_and_sprites.nds");
     app.run();
 }

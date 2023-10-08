@@ -20,8 +20,10 @@ pub struct Arm9 {
 impl Arm9 {
     pub fn new(system: &Shared<System>) -> Self {
         let memory = Box::new(Arm9Memory::new(system));
-        let coprocessor = Box::new(Arm9Coprocessor::new(&memory.itcm, &memory.dtcm));
-        let cpu = Shared::new(Cpu::new(Arch::ARMv5, memory, coprocessor));
+        let cpu = Shared::new_cyclic(|cpu| {
+            let coprocessor = Box::new(Arm9Coprocessor::new(cpu, &memory.itcm, &memory.dtcm));
+            Cpu::new(Arch::ARMv5, memory, coprocessor)
+        });
         Self {
             system: system.clone(),
             irq: Shared::new(Irq::new(&cpu)),
