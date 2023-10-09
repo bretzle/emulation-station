@@ -1,12 +1,16 @@
 use std::hash::Hasher;
 
-use gfx::buffer::{BufferLayout, BufferSource, BufferType, BufferUsage};
+use gfx::buffer::{Arg, BufferLayout, BufferSource, BufferType, BufferUsage};
 use gfx::glue::GlContext;
 use gfx::pipeline::{Pipeline, VertexAttribute, VertexFormat};
-use gfx::shader::ShaderSource;
-use gfx::texture::{FilterMode, TextureAccess, TextureFormat, TextureParams};
+use gfx::shader::{ShaderMeta, ShaderSource};
+use gfx::texture::{FilterMode, TextureAccess, TextureFormat, TextureParams, TextureWrap};
 use gfx::{Bindings, QuadContext};
-use winit::dpi::PhysicalSize;
+use gfx::pass::PassAction;
+use gfx::uniform::{UniformBlockLayout, UniformDesc, UniformsSource, UniformType};
+use microui::atlas::{ATLAS, ATLAS_FONT, ATLAS_HEIGHT, ATLAS_TEXTURE, ATLAS_WHITE, ATLAS_WIDTH};
+use microui::{Color, Command, FontId, Rect};
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use winit::event_loop::EventLoop;
 use winit::platform::run_return::EventLoopExtRunReturn;
@@ -17,6 +21,7 @@ use crate::core::hardware::input::InputEvent;
 use crate::core::video::Screen;
 use crate::core::System;
 use crate::framehelper::FrameHelper;
+use crate::renderer::Renderer;
 use crate::util::Shared;
 
 #[repr(C)]
@@ -31,22 +36,41 @@ struct Vertex {
     uv: Vec2,
 }
 
+#[rustfmt::skip]
+const NORMAL_VERTICES: [Vertex; 6] = [
+    Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
+    Vertex { pos: Vec2 { x: 1.0, y: -1.0 }, uv: Vec2 { x: 1., y: 1. } },
+    Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
+    Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
+    Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
+    Vertex { pos: Vec2 { x: -1.0, y: 1.0 }, uv: Vec2 { x: 0., y: 0. } },
+];
+#[rustfmt::skip]
+const DEBUGGER_VERTICES: [Vertex; 6] = [
+    Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
+    Vertex { pos: Vec2 { x: 0.0, y: -1.0 }, uv: Vec2 { x: 1., y: 1. } },
+    Vertex { pos: Vec2 { x: 0.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
+    Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
+    Vertex { pos: Vec2 { x: 0.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
+    Vertex { pos: Vec2 { x: -1.0, y: 1.0 }, uv: Vec2 { x: 0., y: 0. } },
+];
+
 pub struct Application {
     system: Shared<System>,
     ctx: QuadContext,
     gl: GlContext,
     window: Window,
-    event_loop: EventLoop<()>,
     pipeline: Pipeline,
     bindings: Bindings,
     framehelper: FrameHelper,
     last: u64,
+    in_debugger: bool,
+    microui: microui::Context,
+    renderer: Renderer,
 }
 
 impl Application {
-    pub fn new() -> Self {
-        let event_loop = EventLoop::new();
-
+    pub fn new(event_loop: &EventLoop<()>) -> Self {
         let window = WindowBuilder::new()
             .with_inner_size(PhysicalSize::new(256 * 2, 192 * 2 * 2))
             .with_resizable(false)
@@ -58,15 +82,7 @@ impl Application {
 
         let mut ctx = QuadContext::new(gl.glow());
 
-        #[rustfmt::skip] let vertices: [Vertex; 6] = [
-            Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
-            Vertex { pos: Vec2 { x: 1.0, y: -1.0 }, uv: Vec2 { x: 1., y: 1. } },
-            Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
-            Vertex { pos: Vec2 { x: -1.0, y: -1.0 }, uv: Vec2 { x: 0., y: 1. } },
-            Vertex { pos: Vec2 { x: 1.0, y: 1.0 }, uv: Vec2 { x: 1., y: 0. } },
-            Vertex { pos: Vec2 { x: -1.0, y: 1.0 }, uv: Vec2 { x: 0., y: 0. } },
-        ];
-        let vertex_buffer = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Immutable, BufferSource::slice(&vertices));
+        let vertex_buffer = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Immutable, BufferSource::slice(&NORMAL_VERTICES));
 
         let screen = ctx.new_texture(
             TextureAccess::RenderTarget,
@@ -104,16 +120,20 @@ impl Application {
             shader,
         );
 
+        let renderer = Renderer::new(&mut ctx);
+
         Self {
             system: System::new(),
             ctx,
             gl,
             window,
-            event_loop,
             pipeline,
             bindings,
             framehelper: FrameHelper::new(),
             last: 0,
+            in_debugger: false,
+            microui: microui::Context::new(Renderer::get_char_width, Renderer::get_font_height),
+            renderer,
         }
     }
 
@@ -123,8 +143,9 @@ impl Application {
         self.system.reset();
     }
 
-    pub fn run(&mut self) {
-        let _ = self.event_loop.run_return(|event, _, flow| match event {
+    pub fn run(&mut self, event_loop: &mut EventLoop<()>) {
+        self.center_window();
+        let _ = event_loop.run_return(|event, _, flow| match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => flow.set_exit(),
                 WindowEvent::Resized(new) => self.ctx.resize(new.width as _, new.height as _),
@@ -134,6 +155,12 @@ impl Application {
                         match code {
                             VirtualKeyCode::Minus => self.framehelper.set_fast_forward(1.0),
                             VirtualKeyCode::Equals => self.framehelper.set_fast_forward(2.0),
+                            VirtualKeyCode::RBracket => {
+                                if pressed {
+                                    self.toggle_debugger();
+                                    self.center_window();
+                                }
+                            },
                             _ => {
                                 if let Some(event) = Self::convert(code) {
                                     self.system.input.handle_input(event, pressed);
@@ -147,6 +174,11 @@ impl Application {
             Event::MainEventsCleared => {
                 self.framehelper.run(|| {
                     self.system.run_frame();
+                    if self.in_debugger {
+                        self.microui.frame(|ui| {
+                            ui.window("hello").size(512, 768).show(ui, |ui| {});
+                        });
+                    }
                 });
             }
             Event::RedrawEventsCleared => {
@@ -169,6 +201,12 @@ impl Application {
                     self.ctx.apply_pipeline(&self.pipeline);
                     self.ctx.apply_bindings(&self.bindings);
                     self.ctx.draw(0, 6, 1);
+
+                    if self.in_debugger {
+                        self.draw_debugger();
+                        self.renderer.render(&mut self.ctx)
+                    }
+
                     self.ctx.end_render_pass();
                     self.ctx.commit_frame();
 
@@ -197,6 +235,52 @@ impl Application {
             VirtualKeyCode::W => InputEvent::L,
             _ => return None,
         })
+    }
+
+    fn toggle_debugger(&mut self) {
+        let mut size = self.window.inner_size();
+        if self.in_debugger {
+            size.width /= 2
+        } else {
+            size.width *= 2
+        }
+        self.window.set_inner_size(size);
+
+        let data = if self.in_debugger {
+            &NORMAL_VERTICES
+        } else {
+            &DEBUGGER_VERTICES
+        };
+        self.ctx.buffer_update(self.bindings.vertex_buffers[0], BufferSource::slice(data));
+
+        self.in_debugger ^= true;
+        self.renderer.clear();
+        self.last = 0xdeadbeeef_8008135; // force a redraw
+    }
+
+    fn center_window(&self) {
+        let monitor_size = self.window.current_monitor().unwrap().size();
+        let window_size = self.window.outer_size();
+
+        let pos = PhysicalPosition::new(
+            monitor_size.width / 2 - window_size.width / 2,
+            monitor_size.height / 2 - window_size.height / 2,
+        );
+        self.window.set_outer_position(pos);
+    }
+
+    fn draw_debugger(&mut self) {
+        for &cmd in self.microui.commands() {
+            match cmd {
+                Command::Clip { .. } => todo!(),
+                Command::Rect { rect, color } => self.renderer.draw_rect(rect, color),
+                Command::Text { str_start, str_len, pos, color, .. } => {
+                    let str = &self.microui.text_stack[str_start..str_start + str_len];
+                    self.renderer.draw_text(str, pos, color)
+                }
+                Command::Icon { rect, id, color } => self.renderer.draw_icon(id, rect, color),
+            }
+        }
     }
 }
 
@@ -228,7 +312,7 @@ mod shader {
         ShaderMeta {
             images: vec!["tex".to_string()],
             uniforms: UniformBlockLayout {
-                uniforms: vec![UniformDesc::new("offset", UniformType::Float2)],
+                uniforms: vec![],
             },
         }
     }

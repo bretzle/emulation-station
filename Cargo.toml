@@ -13,6 +13,7 @@ tinylog = { git = "https://github.com/bretzle/tinylog" }
 gfx = { git = "https://github.com/bretzle/gfx" }
 winit = "0.28.6"
 seahash = "4.1.0"
+microui = { git = "https://github.com/bretzle/microui" }
 
 [features]
 log_state = []

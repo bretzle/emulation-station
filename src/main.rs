@@ -11,6 +11,7 @@ use std::fs::File;
 use color_backtrace::termcolor::ColorChoice;
 use log::LevelFilter;
 use tinylog::*;
+use winit::event_loop::EventLoop;
 
 use crate::application::Application;
 
@@ -19,6 +20,7 @@ mod arm;
 mod core;
 mod framehelper;
 mod util;
+mod renderer;
 
 fn main() {
     color_backtrace::install();
@@ -26,7 +28,8 @@ fn main() {
     let config = ConfigBuilder::default().build();
     TinyLogger::init(LevelFilter::Trace, config, Some(ColorChoice::Auto), Some("out.log")).unwrap();
 
-    let mut app = Application::new();
+    let mut event_loop = EventLoop::new();
+    let mut app = Application::new(&event_loop);
     app.boot_game("roms/Pokemon Mystery Dungeon.nds");
-    app.run();
+    app.run(&mut event_loop);
 }
