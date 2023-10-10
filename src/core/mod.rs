@@ -26,8 +26,8 @@ pub mod scheduler;
 pub mod video;
 
 pub struct System {
-    arm7: Arm7,
-    arm9: Arm9,
+    pub arm7: Arm7,
+    pub arm9: Arm9,
     cartridge: Cartridge,
     pub video_unit: VideoUnit,
     pub input: Input,

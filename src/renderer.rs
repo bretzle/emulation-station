@@ -69,7 +69,7 @@ impl Renderer {
             width: ATLAS_WIDTH,
             height: ATLAS_HEIGHT,
         });
-        let vbo = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<DebugVertex>(1024));
+        let vbo = ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<DebugVertex>(512000));
 
         let bindings = Bindings {
             vertex_buffers: vec![vbo],
@@ -171,6 +171,11 @@ impl Renderer {
                 dst.x += dst.w;
             }
         }
+    }
+
+    pub fn set_clip_rect(&mut self, ctx: &mut QuadContext, width: i32, height: i32, rect: Rect) {
+        self.render(ctx);
+        ctx.apply_scissor_rect(rect.x, height - (rect.y + rect.h), rect.w, rect.h)
     }
 
     pub fn render(&mut self, ctx: &mut QuadContext) {

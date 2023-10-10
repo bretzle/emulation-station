@@ -9,12 +9,14 @@ use gfx::{Bindings, QuadContext};
 use gfx::pass::PassAction;
 use gfx::uniform::{UniformBlockLayout, UniformDesc, UniformsSource, UniformType};
 use microui::atlas::{ATLAS, ATLAS_FONT, ATLAS_HEIGHT, ATLAS_TEXTURE, ATLAS_WHITE, ATLAS_WIDTH};
-use microui::{Color, Command, FontId, Rect};
+use microui::{Color, Command, FontId, Rect, WidgetOption};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
+use winit::event::VirtualKeyCode::P;
 use winit::event_loop::EventLoop;
 use winit::platform::run_return::EventLoopExtRunReturn;
 use winit::window::{Window, WindowBuilder};
+use crate::arm::cpu::Cpu;
 
 use crate::core::config::BootMode;
 use crate::core::hardware::input::InputEvent;
@@ -176,7 +178,7 @@ impl Application {
                     self.system.run_frame();
                     if self.in_debugger {
                         self.microui.frame(|ui| {
-                            ui.window("hello").size(512, 768).show(ui, |ui| {});
+                            Self::update_debugger(ui, &mut self.system);
                         });
                     }
                 });
@@ -272,7 +274,9 @@ impl Application {
     fn draw_debugger(&mut self) {
         for &cmd in self.microui.commands() {
             match cmd {
-                Command::Clip { .. } => todo!(),
+                Command::Clip { rect } => {
+                    self.renderer.set_clip_rect(&mut self.ctx, 512, 768, rect)
+                }
                 Command::Rect { rect, color } => self.renderer.draw_rect(rect, color),
                 Command::Text { str_start, str_len, pos, color, .. } => {
                     let str = &self.microui.text_stack[str_start..str_start + str_len];
@@ -282,6 +286,41 @@ impl Application {
             }
         }
     }
+
+    fn update_debugger(ui: &mut microui::Context, system: &mut System) {
+        ui.window("main")
+            .size(512, 768)
+            .options(WidgetOption::NO_TITLE)
+            .show(ui, |ui| {
+                render_cpu(ui, &system.arm7.cpu);
+                render_cpu(ui, &system.arm9.cpu);
+            });
+    }
+}
+
+fn render_cpu(ui: &mut microui::Context, cpu: &Cpu) {
+    let name = format!("{:?} Registers", cpu.arch);
+    ui.layout_row(&[-1], 155);
+    ui.panel("regs").options(WidgetOption::AUTO_SIZE | WidgetOption::NO_SCROLL).show(ui, |ui| {
+        ui.label(&format!("{:?}", cpu.arch));
+        ui.layout_row(&[475 / 5; 5], 0);
+
+        for (reg, &val) in cpu.state.gpr.iter().enumerate() {
+            ui.label(&format!("R{reg:02}: {val:08x}"));
+            match reg {
+                3 => ui.label(&format!("cpsr: {:08x}", cpu.state.cpsr.0)),
+                7 => ui.label(&format!("spsr: {:08x}", cpu.state.spsr().0)),
+                11 => ui.label(""),
+                15 => ui.label(&format!("Mode: {:?}", cpu.state.cpsr.mode())),
+                _ => {}
+            }
+        }
+
+        ui.layout_row(&[475 / 5, -1], 0);
+        let mut state = cpu.is_halted();
+        ui.checkbox("halted", &mut state);
+        ui.label(&format!("instruction: {:08x}", cpu.instruction))
+    })
 }
 
 mod shader {
